@@ -1,0 +1,16 @@
+{
+  "name": "ewpros-auditor-wizard",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Offline-first EWPros Auditor Wizard PWA with Netlify Functions and Resend notifications",
+  "scripts": {
+    "dev": "npx netlify dev",
+    "check": "node --check app.js && node --check netlify/functions/send-audit-email.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "resend": "^6.17.2"
+  }
+}
