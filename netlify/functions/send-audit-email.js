@@ -1,7 +1,7 @@
 const { Resend } = require('resend');
 
-const DEFAULT_FROM = 'EWPros Auditor Wizard <audits@ewpros.com>';
-const DEFAULT_TO = 'audits@ewpros.com';
+const DEFAULT_FROM = 'EWPros Auditor Wizard <audit@ewpros.com>';
+const DEFAULT_TO = 'audit@ewpros.com';
 
 function json(statusCode, body) {
   return {
