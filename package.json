@@ -1,0 +1,19 @@
+{
+  "name": "ewpros-auditor-wizard",
+  "version": "2.0.0",
+  "private": true,
+  "description": "EWPros field auditor PWA with Asana CSV administrator dashboard, Supabase appointments, and Netlify Functions",
+  "scripts": {
+    "dev": "npx netlify dev",
+    "check": "node --check app.js && node --check admin/admin.js && node --check netlify/functions/_admin-auth.js && node --check netlify/functions/_asana-csv.js && node --check netlify/functions/_supabase.js && node --check netlify/functions/send-audit-email.js && node --check netlify/functions/get-appointments.js && node --check netlify/functions/admin-dashboard.js && node --check netlify/functions/import-appointments.js && node --test tests/*.test.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "resend": "^6.17.2",
+    "@supabase/supabase-js": "^2.57.4",
+    "papaparse": "^5.5.3"
+  }
+}
