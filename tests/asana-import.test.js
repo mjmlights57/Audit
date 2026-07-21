@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseNotes, parseAsanaCsv, dateAtNoonIso } = require('../netlify/functions/_asana-csv');
+const { parseNotes, parseAsanaCsv, dateAtNoonIso, normalizeAppointmentTime } = require('../netlify/functions/_asana-csv');
 
 test('extracts structured customer details from Asana Notes', () => {
   const notes = `Assignee: Test User\n\nNotes: Facility Name: Sample Market\n\nNotes: Utility: Pepco\n\nNotes: Account Number: 50000000000\n\nNotes: Contact Name: Jane Doe\n\nNotes: Phone: (301) 555-0100\n\nNotes: Email: jane@example.com\n\nNotes: Street Address: 100 Main St\n\nNotes: City: Bowie\n\nNotes: Zipcode: 20720`;
@@ -40,4 +40,25 @@ test('flags duplicate Task IDs and incomplete addresses', () => {
 
 test('stores a due date at noon UTC to preserve its calendar date', () => {
   assert.equal(dateAtNoonIso('2026-07-27'), '2026-07-27T12:00:00.000Z');
+});
+
+
+test('extracts appointment time from Notes', () => {
+  const csv = `Task ID,Name,Due Date,Notes\n10,Timed Customer,2026-07-27,"Notes: Street Address: 10 Main St\n\nNotes: City: Bowie\n\nNotes: Zipcode: 20720\n\nNotes: Appointment Time: 10:30 AM"`;
+  const result = parseAsanaCsv(csv);
+  assert.equal(result.valid.length, 1);
+  assert.equal(result.valid[0].appointment.source_payload.scheduled_time, '10:30 AM');
+});
+
+test('extracts appointment time from a CSV custom field', () => {
+  const csv = `Task ID,Name,Due Date,Appointment Time,Notes\n11,Custom Field Customer,2026-07-27,14:15,"Notes: Street Address: 11 Main St\n\nNotes: City: Bowie\n\nNotes: Zipcode: 20720"`;
+  const result = parseAsanaCsv(csv);
+  assert.equal(result.valid.length, 1);
+  assert.equal(result.valid[0].appointment.source_payload.scheduled_time, '2:15 PM');
+});
+
+test('normalizes common appointment time formats', () => {
+  assert.equal(normalizeAppointmentTime('9am'), '9:00 AM');
+  assert.equal(normalizeAppointmentTime('09:05 AM'), '9:05 AM');
+  assert.equal(normalizeAppointmentTime('16:30'), '4:30 PM');
 });

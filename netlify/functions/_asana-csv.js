@@ -12,6 +12,7 @@ const HEADER_ALIASES = {
   assigneeEmail: ['assignee email', 'auditor email'],
   startDate: ['start date', 'appointment date', 'scheduled date'],
   dueDate: ['due date', 'appointment date', 'scheduled date', 'date'],
+  scheduledTime: ['appointment time', 'scheduled time', 'start time', 'time'],
   notes: ['notes', 'description'],
   completedAt: ['completed at', 'completion date'],
   project: ['projects', 'project'],
@@ -76,6 +77,7 @@ function parseNotes(notesText) {
     city: valueFor(['city']) || tabValue('City'),
     state: valueFor(['state']) || tabValue('State'),
     zipcode: valueFor(['zipcode', 'zip code', 'zip']) || tabValue('Zip'),
+    appointmentTime: valueFor(['appointment time', 'scheduled time', 'start time', 'time']),
     rawFields: fields,
     rawText: text
   };
@@ -89,6 +91,34 @@ function buildAddress(parsedNotes) {
     parsedNotes.state,
     parsedNotes.zipcode
   ].filter(Boolean).join(', ');
+}
+
+
+function normalizeAppointmentTime(timeValue) {
+  const value = clean(timeValue);
+  if (!value) return '';
+
+  const compact = value.replace(/\s+/g, ' ').trim();
+  const twelveHour = compact.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?$/i);
+  if (twelveHour) {
+    let hour = Number(twelveHour[1]);
+    const minute = Number(twelveHour[2] || '0');
+    if (hour < 1 || hour > 12 || minute > 59) return compact;
+    const suffix = twelveHour[3].toUpperCase() + 'M';
+    return `${hour}:${String(minute).padStart(2, '0')} ${suffix}`;
+  }
+
+  const twentyFourHour = compact.match(/^(\d{1,2}):(\d{2})$/);
+  if (twentyFourHour) {
+    const hour = Number(twentyFourHour[1]);
+    const minute = Number(twentyFourHour[2]);
+    if (hour > 23 || minute > 59) return compact;
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${String(minute).padStart(2, '0')} ${suffix}`;
+  }
+
+  return compact;
 }
 
 function normalizeStatus(sectionValue) {
@@ -116,6 +146,7 @@ function normalizeCsvRow(row, rowNumber) {
   const customerName = findValue(row, 'customerName');
   const notes = parseNotes(findValue(row, 'notes'));
   const dueDate = findValue(row, 'dueDate') || findValue(row, 'startDate');
+  const scheduledTime = normalizeAppointmentTime(findValue(row, 'scheduledTime') || notes.appointmentTime);
   const address = buildAddress(notes);
   const assigneeName = findValue(row, 'assigneeName');
   const assigneeEmail = findValue(row, 'assigneeEmail');
@@ -136,6 +167,7 @@ function normalizeCsvRow(row, rowNumber) {
     asana_project: findValue(row, 'project'),
     asana_completed_at: findValue(row, 'completedAt') || null,
     scheduled_date: dueDate || null,
+    scheduled_time: scheduledTime || null,
     facility_name: notes.facilityName || customerName,
     utility: notes.utility || null,
     account_number: notes.accountNumber || null,
@@ -251,5 +283,6 @@ module.exports = {
   parseNotes,
   buildAddress,
   changedFields,
-  dateAtNoonIso
+  dateAtNoonIso,
+  normalizeAppointmentTime
 };
