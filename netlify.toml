@@ -10,10 +10,6 @@
 [functions]
   node_bundler = "esbuild"
 
-[[redirects]]
-  from = "/admin"
-  to = "/admin/"
-  status = 301
 
 [[headers]]
   for = "/.netlify/functions/*"
