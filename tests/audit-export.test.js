@@ -24,7 +24,7 @@ const sample = {
   equipment: {
     interior: [
       { kind: 'hvac', category: 'HVAC', type: 'Heat Pump', manufacturer: 'Acme', model: 'HP-1', serial: 'S123', quantity: 1, location: 'Roof', capacity: '3 tons', efficiency: '16 SEER', condition: 'Good', notes: 'Operating normally' },
-      { kind: 'lighting', category: 'Lighting', location: 'Sales floor', over300sf: 'Yes', deviceCategory: 'Compact Fluorescents', deviceCode: '1c0005', quantity: 12, photo: null }
+      { kind: 'lighting', category: 'Lighting', location: 'Sales floor', over300sf: 'Yes', deviceCategory: 'Compact Fluorescents', deviceCode: '1c0005', quantity: 12, photo: null, proposedDevice: '(2x4)LED40W', proposedQty: 12, ctrlNumber: 'C-101', notes: 'Replace during phase 1' }
     ],
     exterior: []
   },
@@ -38,11 +38,13 @@ test('builds a readable CSV with HVAC and lighting rows', () => {
   const csv = buildAuditCsv(sample);
   assert.match(csv, /Appointment Number,Asana Task ID/);
   assert.match(csv, /Existing Device Category,Existing Device Code/);
-  assert.match(csv, /Equipment Photo File/);
+  assert.match(csv, /Equipment Photo File,Proposed Device,Proposed Quantity,Control Number/);
   assert.match(csv, /"Sample Market, LLC"/);
   assert.match(csv, /Heat Pump/);
   assert.match(csv, /Compact Fluorescents/);
   assert.match(csv, /1c0005/);
+  assert.match(csv, /\(2x4\)LED40W/);
+  assert.match(csv, /C-101/);
 });
 
 test('builds a PDF byte stream', () => {

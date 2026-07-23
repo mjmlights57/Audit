@@ -1,3 +1,30 @@
+# EWPros Auditor 2.4.0
+
+## Audit lighting line updates
+
+- Added **Proposed Device**, **Proposed Qty**, **Ctrl#**, and **Notes** after the equipment-image column.
+- Proposed Device uses the shared PData catalog while still allowing typed values.
+- Added the proposed fields to the generated audit CSV and internal audit report.
+- Duplicate and delete actions preserve the proposed fields; duplicated photos are intentionally cleared.
+
+## Matching Interior and Exterior workflows
+
+- Exterior Equipment now has the same **HVAC / Lighting** selector as Interior Equipment.
+- Both sections support dependent existing-device codes, equipment photos, proposed-device data, add, duplicate, and delete.
+
+## Administrator workbook tabs
+
+- Added **Main**, **PData**, **For_PEPCO_Wrkbk**, **For_PEPCO_Online**, and **Invoice** tabs.
+- Main uses a dashboard/control-center layout and preserves appointment/import metrics.
+- PData includes all 47 supplied proposed-device records across 18 editable columns.
+- PData supports search, add, edit, duplicate, delete, save, reset, and CSV export.
+- For_PEPCO_Wrkbk, For_PEPCO_Online, and Invoice are reserved as blank workspaces.
+- PData edits are stored in the current browser; the project’s built-in defaults remain in `p-data.js`.
+
+## Main-tab design note
+
+- A polished control-center design is included. The referenced Image3 was not included with the request, so exact visual matching can be completed after that image is supplied.
+
 # EWPros Auditor 2.3.1
 
 ## Full lighting device catalog

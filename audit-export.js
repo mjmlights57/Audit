@@ -110,7 +110,8 @@
       'Auditor', 'Asana Assignee', 'Completion Date/Time', 'Audit Status', 'Area', 'Equipment #',
       'Category', 'Equipment Type', 'Manufacturer', 'Model', 'Serial Number', 'Quantity', 'Location',
       'Capacity', 'Efficiency', 'Condition', '>300 SF', 'Existing Device Category', 'Existing Device Code',
-      'Equipment Photo Captured', 'Equipment Photo File', 'Equipment Notes', 'Audit Notes', 'Customer Accepted Terms',
+      'Equipment Photo Captured', 'Equipment Photo File', 'Proposed Device', 'Proposed Quantity', 'Control Number',
+      'Equipment Notes', 'Audit Notes', 'Customer Accepted Terms',
       'Signature Name', 'Signature', 'Address Confirmed', 'Front Photo Captured', 'Front Photo File',
       'Interior Section Completed', 'Exterior Section Completed'
     ];
@@ -124,7 +125,8 @@
         audit.auditorName || audit.auditor, audit.auditorName, formatDateTime(audit.completedAt), audit.status,
         row.area, row.index || '', item.category, item.type, item.manufacturer, item.model, item.serial,
         item.quantity, item.location, item.capacity, item.efficiency, item.condition, item.over300sf,
-        item.deviceCategory, item.deviceCode, item.photo ? 'Yes' : 'No', equipmentPhoto, item.notes,
+        item.deviceCategory, item.deviceCode, item.photo ? 'Yes' : 'No', equipmentPhoto,
+        item.proposedDevice, item.proposedQty, item.ctrlNumber, item.notes,
         audit.notes, audit.tasks?.terms ? 'Yes' : 'No', audit.signatureName, audit.signature,
         audit.tasks?.confirm ? 'Yes' : 'No', audit.photos?.front ? 'Yes' : 'No', frontPhoto,
         audit.tasks?.interior ? 'Yes' : 'No', audit.tasks?.exterior ? 'Yes' : 'No'
@@ -296,8 +298,11 @@
           keyValue('Area greater than 300 SF', item.over300sf);
           keyValue('Existing device category', item.deviceCategory);
           keyValue('Existing device code', item.deviceCode);
-          keyValue('Quantity', item.quantity || 1);
+          keyValue('Existing quantity', item.quantity || 1);
           keyValue('Equipment photo captured', item.photo ? 'Yes' : 'No');
+          keyValue('Proposed device', item.proposedDevice);
+          keyValue('Proposed quantity', item.proposedQty || '');
+          keyValue('Control number', item.ctrlNumber);
         } else {
           keyValue('Manufacturer / model', [item.manufacturer, item.model].filter(Boolean).join(' '));
           keyValue('Serial number', item.serial);

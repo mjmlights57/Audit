@@ -1,5 +1,5 @@
-const CACHE = 'auditor-wizard-v8-full-lighting-catalog';
-const ASSETS = ['./','./index.html','./app.js','./lighting-catalog.js','./audit-export.js','./styles.css','./manifest.webmanifest','./assets/icon.svg','./assets/pdf-lib.min.js','./assets/TC_CA_App.pdf','./assets/TC_PEPCO.pdf'];
+const CACHE = 'auditor-wizard-v9-proposed-device-admin-tabs';
+const ASSETS = ['./','./index.html','./app.js','./lighting-catalog.js','./p-data.js','./audit-export.js','./styles.css','./manifest.webmanifest','./assets/icon.svg','./assets/pdf-lib.min.js','./assets/TC_CA_App.pdf','./assets/TC_PEPCO.pdf'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));

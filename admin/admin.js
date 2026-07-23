@@ -11,7 +11,9 @@ let state = {
   dashboard: null,
   csvText: '',
   filename: '',
-  preview: null
+  preview: null,
+  workspaceTab: 'main',
+  pDataRows: []
 };
 
 const escapeHtml = value => String(value ?? '')
@@ -20,6 +22,114 @@ const escapeHtml = value => String(value ?? '')
   .replaceAll('>', '&gt;')
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#039;');
+
+const PDATA_STORAGE_KEY = 'ewpros_pdata_rows_v1';
+
+function pDataColumns() {
+  return window.EWPROS_PDATA?.columns || [];
+}
+
+function defaultPDataRows() {
+  return JSON.parse(JSON.stringify(window.EWPROS_PDATA?.rows || []));
+}
+
+function loadPDataRows() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PDATA_STORAGE_KEY) || 'null');
+    if (Array.isArray(saved) && saved.length) return saved;
+  } catch {}
+  return defaultPDataRows();
+}
+
+function blankPDataRow() {
+  return Object.fromEntries(pDataColumns().map(column => [column.key, '']));
+}
+
+function setPDataStatus(message, dirty = false) {
+  const status = $('#pdataStatus');
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle('dirty', dirty);
+}
+
+function csvValue(value) {
+  const text = String(value ?? '').replace(/\r?\n/g, ' ');
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadTextFile(filename, content, type = 'text/plain;charset=utf-8') {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function savePDataRows(showMessage = true) {
+  localStorage.setItem(PDATA_STORAGE_KEY, JSON.stringify(state.pDataRows));
+  setPDataStatus(`${state.pDataRows.length} rows saved`);
+  if (showMessage) toast('PData saved on this browser');
+}
+
+function renderPData() {
+  const container = $('#pdataTable');
+  if (!container) return;
+  const columns = pDataColumns();
+  const query = ($('#pdataSearch')?.value || '').trim().toLowerCase();
+  const visible = state.pDataRows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => !query || Object.values(row).join(' ').toLowerCase().includes(query));
+
+  container.innerHTML = visible.length ? `
+    <table class="pdata-table">
+      <thead><tr><th>#</th>${columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join('')}<th>Actions</th></tr></thead>
+      <tbody>${visible.map(({ row, index }) => `<tr>
+        <td class="pdata-row-number">${index + 1}</td>
+        ${columns.map(column => {
+          const value = escapeHtml(row[column.key] || '');
+          const longField = ['measureDescription', 'modelNumber', 'reportedModelNumber'].includes(column.key);
+          return `<td>${longField
+            ? `<textarea data-pdata-index="${index}" data-pdata-field="${column.key}" rows="2">${value}</textarea>`
+            : `<input data-pdata-index="${index}" data-pdata-field="${column.key}" value="${value}">`
+          }</td>`;
+        }).join('')}
+        <td><div class="pdata-row-actions"><button class="button mini secondary" type="button" data-duplicate-pdata="${index}">Duplicate</button><button class="button mini danger-outline" type="button" data-delete-pdata="${index}">Delete</button></div></td>
+      </tr>`).join('')}</tbody>
+    </table>` : '<div class="empty">No PData rows match the current search.</div>';
+
+  $$('[data-pdata-field]').forEach(input => input.addEventListener('input', () => {
+    const index = Number(input.dataset.pdataIndex);
+    const field = input.dataset.pdataField;
+    if (!state.pDataRows[index]) return;
+    state.pDataRows[index][field] = input.value;
+    setPDataStatus('Unsaved changes', true);
+  }));
+  $$('[data-duplicate-pdata]').forEach(button => button.addEventListener('click', () => {
+    const index = Number(button.dataset.duplicatePdata);
+    state.pDataRows.splice(index + 1, 0, { ...state.pDataRows[index] });
+    setPDataStatus('Unsaved changes', true);
+    renderPData();
+  }));
+  $$('[data-delete-pdata]').forEach(button => button.addEventListener('click', () => {
+    const index = Number(button.dataset.deletePdata);
+    if (!confirm('Delete this PData row?')) return;
+    state.pDataRows.splice(index, 1);
+    setPDataStatus('Unsaved changes', true);
+    renderPData();
+  }));
+}
+
+function showWorkspaceTab(name) {
+  state.workspaceTab = name;
+  $$('.workbook-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.workspaceTab === name));
+  $$('.workspace-view').forEach(view => view.classList.toggle('active', view.id === `workspace-${name}`));
+  if (name === 'pdata') renderPData();
+}
+
+state.pDataRows = loadPDataRows();
 
 function toast(message) {
   $('#toast').textContent = message;
@@ -103,6 +213,7 @@ function renderDashboard() {
 
   renderAppointments();
   renderHistory();
+  renderPData();
 }
 
 function filteredAppointments() {
@@ -171,8 +282,9 @@ async function loadDashboard(showSuccess = false) {
 function showView(name) {
   $$('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === name));
   $$('.view').forEach(view => view.classList.toggle('active', view.id === `view-${name}`));
-  const titles = { overview: 'Overview', import: 'Import CSV', appointments: 'Appointments', history: 'Import History' };
+  const titles = { workspace: 'Workspace', import: 'Import CSV', appointments: 'Appointments', history: 'Import History' };
   $('#pageTitle').textContent = titles[name] || 'Dashboard';
+  if (name === 'workspace') showWorkspaceTab(state.workspaceTab || 'main');
 }
 
 function setFile(file) {
@@ -281,6 +393,34 @@ $('#adminLoginForm').addEventListener('submit', async event => {
 });
 
 $$('.nav-item').forEach(item => item.addEventListener('click', () => showView(item.dataset.view)));
+$$('.workbook-tab').forEach(tab => tab.addEventListener('click', () => showWorkspaceTab(tab.dataset.workspaceTab)));
+$$('[data-open-admin-view]').forEach(button => button.addEventListener('click', () => showView(button.dataset.openAdminView)));
+$('#pdataSearch')?.addEventListener('input', renderPData);
+$('#addPDataRow')?.addEventListener('click', () => {
+  state.pDataRows.push(blankPDataRow());
+  setPDataStatus('Unsaved changes', true);
+  renderPData();
+  const wrap = $('#pdataTable');
+  if (wrap) wrap.scrollTop = wrap.scrollHeight;
+});
+$('#savePData')?.addEventListener('click', () => savePDataRows(true));
+$('#exportPData')?.addEventListener('click', () => {
+  const columns = pDataColumns();
+  const csv = [
+    columns.map(column => csvValue(column.label)).join(','),
+    ...state.pDataRows.map(row => columns.map(column => csvValue(row[column.key])).join(','))
+  ].join('\r\n');
+  downloadTextFile('EWPros_PData.csv', `\ufeff${csv}`, 'text/csv;charset=utf-8');
+  toast('PData CSV exported');
+});
+$('#resetPData')?.addEventListener('click', () => {
+  if (!confirm('Reset PData to the 47 built-in rows? Your browser edits will be replaced.')) return;
+  localStorage.removeItem(PDATA_STORAGE_KEY);
+  state.pDataRows = defaultPDataRows();
+  savePDataRows(false);
+  renderPData();
+  toast('PData reset to project defaults');
+});
 $('#refreshDashboard').addEventListener('click', () => loadDashboard(true).catch(() => {}));
 $('#adminLogout').addEventListener('click', () => {
   sessionStorage.removeItem('ewpros_admin_password');
@@ -303,6 +443,9 @@ for (const eventName of ['dragleave', 'drop']) {
   dropZone.addEventListener(eventName, event => { event.preventDefault(); dropZone.classList.remove('dragging'); });
 }
 dropZone.addEventListener('drop', event => setFile(event.dataTransfer.files[0]));
+
+renderPData();
+showWorkspaceTab('main');
 
 if (state.password) {
   $('#loginPanel').classList.add('hidden');

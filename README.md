@@ -1,4 +1,4 @@
-# EWPros Auditor Wizard 2.3
+# EWPros Auditor Wizard 2.4
 
 This project contains two connected interfaces:
 
@@ -61,9 +61,9 @@ The app uses the supplied three-page PEPCO T&C template, effective 4/16/2025. It
 
 Only the form matching the appointment utility is generated and shared.
 
-## Interior Equipment: HVAC and Lighting
+## Interior and Exterior Equipment: HVAC and Lighting
 
-The Interior Equipment section now has two modes:
+Both the Interior Equipment and Exterior Equipment sections now have two modes:
 
 - **HVAC** — preserves the existing equipment workflow
 - **Lighting** — line-item lighting inventory optimized for iPad use
@@ -77,6 +77,10 @@ Each lighting line includes:
 - Dependent Existing Device Code
 - Quantity
 - Equipment photo
+- Proposed Device (from the PData catalog or typed manually)
+- Proposed Qty
+- Ctrl#
+- Notes
 - Duplicate and Delete actions
 
 The auditor can add unlimited lines, duplicate a similar line, delete a line, and capture or retake the equipment photo.
@@ -187,3 +191,18 @@ npm run dev
 ```
 
 `npm run check` validates the JavaScript and runs the Asana parser, utility routing, BGE/PEPCO PDF, HVAC/lighting CSV, and export tests.
+
+
+## Administrator workspace tabs
+
+The administrator dashboard includes five workbook-style tabs:
+
+- **Main** — project-control dashboard with appointment and import information
+- **PData** — editable proposed-device table containing the 47 supplied records
+- **For_PEPCO_Wrkbk** — reserved for future workbook mapping
+- **For_PEPCO_Online** — reserved for future online-entry preparation
+- **Invoice** — reserved for future invoice preparation
+
+PData supports search, add, edit, duplicate, delete, reset, and CSV export. Browser edits are stored under `ewpros_pdata_rows_v1`. The default data remains in `p-data.js` and is also used to populate the auditor’s Proposed Device suggestions.
+
+The requested Image3 was not attached to this update. The Main tab therefore uses a polished control-center layout and can be restyled to match Image3 after the image is uploaded.

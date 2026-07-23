@@ -1,11 +1,11 @@
 {
   "name": "ewpros-auditor-wizard",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "private": true,
-  "description": "EWPros field auditor PWA with Asana CSV appointments, utility-specific BGE/PEPCO signed T&C PDFs, HVAC and full dependent-code lighting inventory, equipment photos, audit CSV, iPad Share Sheet, Supabase, and Netlify Functions",
+  "description": "EWPros field auditor PWA with matching interior/exterior HVAC and lighting inventories, proposed-device line fields, editable PData admin workspace, Asana CSV appointments, utility-specific signed BGE/PEPCO PDFs, CSV/photo export, Supabase, and Netlify Functions",
   "scripts": {
     "dev": "npx netlify dev",
-    "check": "node --check app.js && node --check lighting-catalog.js && node --check audit-export.js && node --check admin/admin.js && node --check netlify/functions/_admin-auth.js && node --check netlify/functions/_asana-csv.js && node --check netlify/functions/_supabase.js && node --check netlify/functions/admin-login.js && node --check netlify/functions/send-audit-email.js && node --check netlify/functions/get-appointments.js && node --check netlify/functions/admin-dashboard.js && node --check netlify/functions/import-appointments.js && node --test tests/*.test.js",
+    "check": "node --check app.js && node --check lighting-catalog.js && node --check p-data.js && node --check audit-export.js && node --check admin/admin.js && node --check netlify/functions/_admin-auth.js && node --check netlify/functions/_asana-csv.js && node --check netlify/functions/_supabase.js && node --check netlify/functions/admin-login.js && node --check netlify/functions/send-audit-email.js && node --check netlify/functions/get-appointments.js && node --check netlify/functions/admin-dashboard.js && node --check netlify/functions/import-appointments.js && node --test tests/*.test.js",
     "test": "node --test tests/*.test.js"
   },
   "engines": {
