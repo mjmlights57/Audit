@@ -1,5 +1,5 @@
-const CACHE = 'auditor-wizard-v9-proposed-device-admin-tabs';
-const ASSETS = ['./','./index.html','./app.js','./lighting-catalog.js','./p-data.js','./audit-export.js','./styles.css','./manifest.webmanifest','./assets/icon.svg','./assets/pdf-lib.min.js','./assets/TC_CA_App.pdf','./assets/TC_PEPCO.pdf'];
+const CACHE = 'auditor-wizard-v13-invoice-archive';
+const ASSETS = ['./','./index.html','./app.js','./lighting-catalog.js','./p-data.js','./control-data.js','./pepco-online-data.js','./space-types.js','./audit-export.js','./styles.css','./manifest.webmanifest','./assets/icon.svg','./assets/pdf-lib.min.js','./assets/TC_CA_App.pdf','./assets/TC_PEPCO.pdf','./assets/ewpros-logo.jpg','./assets/authorized-personnel-signature.jpg'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));

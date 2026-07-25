@@ -95,17 +95,24 @@ function parseNotes(notesText) {
     utility: valueFor(['utility', 'utility company']),
     projectId: valueFor(['project id', 'pepco project id', 'utility project id', 'project number']),
     accountNumber: valueFor(['account number', 'utility account number', 'account #']) || tabValue('ELECTRIC ACCT\.#'),
+    companyName: valueFor(['company', 'company name', 'customer company']) || valueFor(['facility name', 'business name']) || tabValue('Business Name') || tabValue('Project Name'),
+    meterId: valueFor(['meter id', 'meter number', 'meter #']),
+    addressCont: valueFor(['address cont', 'address (cont)', 'address continuation', 'address 2', 'address line 2', 'suite', 'unit']),
     businessType: valueFor(['business type', 'facility type']) || tabValue('Building Type'),
-    contactName: valueFor(['contact name', 'customer contact']) || tabValue('Contact') || rawContact,
-    title: valueFor(['title']) || tabValue('Title'),
+    businessSector: valueFor(['business sector', 'sector']),
+    buildingType: valueFor(['building type', 'facility building type']) || tabValue('Building Type'),
+    squareFootage: valueFor(['square footage by application', 'square footage', 'building square footage', 'sq ft', 'sq. ft.']),
+    heatingFuelType: valueFor(['heating fuel type', 'heating fuel', 'fuel type']),
+    contactName: valueFor(['contact name', 'customer contact', 'first & last name', 'first and last name']) || tabValue('Contact') || rawContact,
+    title: valueFor(['title', 'customer title']) || tabValue('Title'),
     phone: valueFor(['phone', 'phone #', 'main tel #', 'main telephone']) || tabValue('Phone') || rawPhone,
     phone2: valueFor(['phone #2', 'phone 2', 'alternate phone']),
     email: valueFor(['email', 'customer email']) || tabValue('Email'),
     streetAddress: valueFor(['street address', 'service address', 'address']) || tabValue('Street Address'),
     fullAddress,
     city: valueFor(['city']) || tabValue('City'),
-    state: valueFor(['state']) || tabValue('State'),
-    zipcode: valueFor(['zipcode', 'zip code', 'zip']) || tabValue('Zip'),
+    state: valueFor(['state', 'state/province', 'province']) || tabValue('State'),
+    zipcode: valueFor(['zipcode', 'zip code', 'zip', 'postal code']) || tabValue('Zip'),
     appointmentTime: valueFor(['appointment time', 'scheduled time', 'start time', 'time']),
     rawFields: fields,
     rawText: text
@@ -211,7 +218,14 @@ function normalizeCsvRow(row, rowNumber) {
     utility_raw: notes.utility || null,
     project_id: notes.projectId || null,
     account_number: notes.accountNumber || null,
+    company_name: notes.companyName || notes.facilityName || customerName,
+    meter_id: notes.meterId || null,
+    address_cont: notes.addressCont || null,
     business_type: notes.businessType || null,
+    business_sector: notes.businessSector || null,
+    building_type: notes.buildingType || notes.businessType || null,
+    square_footage: notes.squareFootage || null,
+    heating_fuel_type: notes.heatingFuelType || null,
     contact_name: notes.contactName || null,
     contact_title: notes.title || null,
     street_address: notes.streetAddress || null,
@@ -313,7 +327,7 @@ function changedFields(existing, incoming) {
 
   const oldPayload = existing?.source_payload || {};
   const newPayload = incoming?.source_payload || {};
-  for (const field of ['asana_section', 'asana_assignee_name', 'asana_assignee_email', 'utility', 'utility_raw', 'project_id', 'account_number', 'contact_name', 'contact_title', 'street_address', 'city', 'state', 'zipcode', 'business_type']) {
+  for (const field of ['asana_section', 'asana_assignee_name', 'asana_assignee_email', 'utility', 'utility_raw', 'project_id', 'account_number', 'company_name', 'meter_id', 'address_cont', 'contact_name', 'contact_title', 'street_address', 'city', 'state', 'zipcode', 'business_type', 'business_sector', 'building_type', 'square_footage', 'heating_fuel_type']) {
     if (comparableValue(oldPayload[field]) !== comparableValue(newPayload[field])) {
       changes.push(`source_payload.${field}`);
     }

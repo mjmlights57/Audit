@@ -76,6 +76,20 @@
             </div>
           </section>
           <div id="metricCards" class="metrics"></div>
+          <section class="panel project-archive-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Complete Project Archive</h2>
+                <p>Download one project file containing the Admin tabs, invoice, imported appointment snapshot, signed audit data, photos, and signatures. Upload it later to restore everything to the correct sections.</p>
+              </div>
+              <span class="status-chip">EWPros archive</span>
+            </div>
+            <div class="archive-actions">
+              <button id="downloadProjectArchive" class="button primary" type="button">Download all project data</button>
+              <label class="button secondary archive-upload">Upload project archive<input id="uploadProjectArchive" type="file" accept=".json,application/json" hidden></label>
+            </div>
+            <p class="archive-note">The archive is a single JSON file. Projects containing many photos may produce a larger file because the photos and customer signature are included.</p>
+          </section>
           <div class="panel-grid">
             <section class="panel">
               <div class="panel-heading"><div><h2>Upcoming appointments</h2><p>Next scheduled appointments from Supabase</p></div></div>
@@ -109,16 +123,230 @@
             </div>
             <div id="pdataTable" class="table-wrap pdata-table-wrap"></div>
           </section>
+
+          <section class="panel pdata-panel control-pdata-panel">
+            <div class="panel-heading pdata-heading">
+              <div>
+                <h2>Control Data</h2>
+                <p>Independent control-measure mapping used for PEPCO workbook preparation.</p>
+              </div>
+              <span id="controlPdataStatus" class="status-chip">4 default rows</span>
+            </div>
+            <div class="notice">
+              This table is independent of Proposed Device Data. Saving or resetting one table does not change the other.
+            </div>
+            <div class="pdata-toolbar">
+              <input id="controlPdataSearch" type="search" placeholder="Search control type, measure, mounting, or code…">
+              <button id="addControlPDataRow" class="button secondary" type="button">+ Add row</button>
+              <button id="saveControlPData" class="button primary" type="button">Save changes</button>
+              <button id="exportControlPData" class="button secondary" type="button">Export CSV</button>
+              <button id="resetControlPData" class="button danger-outline" type="button">Reset defaults</button>
+            </div>
+            <div id="controlPdataTable" class="table-wrap pdata-table-wrap"></div>
+          </section>
         </div>
 
         <div id="workspace-pepco-workbook" class="workspace-view">
-          <section class="panel blank-workspace"><h2>For_PEPCO_Wrkbk</h2><p>This tab is ready for the PEPCO workbook mapping in a future update.</p></section>
+          <section class="panel pepco-workbook-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>PEPCO Workbook Preparation</h2>
+                <p>The upper project/model area and lower lighting inventory are saved independently.</p>
+              </div>
+              <span class="status-chip">Workbook layout</span>
+            </div>
+
+            <div class="project-source-toolbar">
+              <label>Imported project
+                <select id="pepcoProjectSource"><option value="">Select an imported appointment…</option></select>
+              </label>
+              <button id="loadPepcoProjectData" class="button secondary" type="button">Load CSV project data</button>
+              <button id="loadPepcoAuditData" class="button primary" type="button">Load auditor lighting data</button>
+              <span id="pepcoProjectLoadStatus" class="status-chip">Select a project</span>
+            </div>
+
+            <div class="pepco-sheet-section pepco-top-section">
+              <div class="sheet-section-heading">
+                <div><strong>A — Project and model information</strong><span>Independent upper section</span></div>
+                <div class="sheet-actions">
+                  <button id="savePepcoTop" class="button primary" type="button">Save upper section</button>
+                  <button id="resetPepcoTop" class="button danger-outline" type="button">Reset</button>
+                </div>
+              </div>
+
+              <div class="pepco-info-grid">
+                <div class="sheet-box">
+                  <h3>General Project Information (Required)</h3>
+                  <label>Project Name<input data-pepco-top-field="projectName"></label>
+                  <label>Project Address<input data-pepco-top-field="projectAddress"></label>
+                  <label>City<input data-pepco-top-field="city"></label>
+                  <label>ZIP<input data-pepco-top-field="zip"></label>
+                </div>
+                <div class="sheet-box compact-box">
+                  <h3>Building Information (Required)</h3>
+                  <label>Building Type<input data-pepco-top-field="buildingType"></label>
+                  <label>Heating Fuel Type<input data-pepco-top-field="heatingFuelType"></label>
+                </div>
+                <div class="sheet-box">
+                  <h3>Workbook Submitter Information</h3>
+                  <label>Company Name<input data-pepco-top-field="companyName"></label>
+                  <label>Contact Person<input data-pepco-top-field="contactPerson"></label>
+                  <label>Phone<input data-pepco-top-field="phone"></label>
+                  <label>Email<input data-pepco-top-field="email"></label>
+                </div>
+                <div class="sheet-box compact-box">
+                  <h3>Incentivized Tabs</h3>
+                  <label class="sheet-choice"><input type="checkbox" data-pepco-top-field="lightingInventory"> Lighting Inventory</label>
+                  <label class="sheet-choice"><input type="checkbox" data-pepco-top-field="lightingControlsOnly"> Lighting Controls Only</label>
+                  <label class="sheet-choice"><input type="checkbox" data-pepco-top-field="signLighting"> Sign Lighting</label>
+                </div>
+              </div>
+
+              <div class="sheet-table-wrap">
+                <table class="sheet-table model-table">
+                  <thead><tr><th>Model ID</th><th>DLC/Energy Star ID</th><th>Model Number</th><th>Reported Lumens</th><th>Reported Wattage</th><th>Reported Efficacy</th><th>Proposed LED Device</th><th>Actions</th></tr></thead>
+                  <tbody id="pepcoModelTable"></tbody>
+                </table>
+              </div>
+              <button id="addPepcoModelRow" class="button secondary" type="button">+ Add model row</button>
+            </div>
+
+            <div class="pepco-sheet-section pepco-inventory-section">
+              <div class="sheet-section-heading">
+                <div><strong>Lighting Inventory</strong><span>Independent lower section</span></div>
+                <div class="sheet-actions">
+                  <button id="savePepcoInventory" class="button primary" type="button">Save inventory</button>
+                  <button id="resetPepcoInventory" class="button danger-outline" type="button">Reset</button>
+                </div>
+              </div>
+              <div id="pepcoInventoryTable" class="sheet-table-wrap pepco-inventory-wrap"></div>
+              <button id="addPepcoInventoryRow" class="button secondary" type="button">+ Add inventory row</button>
+            </div>
+          </section>
         </div>
         <div id="workspace-pepco-online" class="workspace-view">
-          <section class="panel blank-workspace"><h2>For_PEPCO_Online</h2><p>This tab is reserved for PEPCO online-entry preparation.</p></section>
+          <section class="panel pepco-online-panel">
+            <div class="panel-heading pdata-heading">
+              <div>
+                <h2>PEPCO Online Portal Entry Worksheet</h2>
+                <p>Use this editable checklist while entering a project in the utility application portal.</p>
+              </div>
+              <span id="pepcoOnlineStatus" class="status-chip">40 default rows</span>
+            </div>
+
+            <div class="portal-links" aria-label="Utility online portal links">
+              <span>Click here for the online portal:</span>
+              <a class="button primary button-link" href="https://homeenergysavings.pepco.com/business/apply" target="_blank" rel="noopener noreferrer">PEPCO</a>
+              <a class="button secondary button-link" href="https://bgeiconline.customerapplication.com" target="_blank" rel="noopener noreferrer">BGE</a>
+            </div>
+
+            <div class="notice">
+              The expected completion date defaults to two months from today, and the application date defaults to today. Changes are saved in this browser and remain independent of the PEPCO workbook tab.
+            </div>
+
+            <div class="project-source-toolbar pepco-online-source-toolbar">
+              <label>Imported project
+                <select id="pepcoOnlineProjectSource"><option value="">Select an imported appointment…</option></select>
+              </label>
+              <button id="loadPepcoOnlineProjectData" class="button primary" type="button">Fill from imported CSV</button>
+              <span id="pepcoOnlineProjectStatus" class="status-chip">Select a project</span>
+            </div>
+
+            <div class="pdata-toolbar pepco-online-toolbar">
+              <input id="pepcoOnlineSearch" type="search" placeholder="Search section, portal field, or value…">
+              <button id="addPepcoOnlineRow" class="button secondary" type="button">+ Add row</button>
+              <button id="savePepcoOnline" class="button primary" type="button">Save worksheet</button>
+              <button id="exportPepcoOnline" class="button secondary" type="button">Export CSV</button>
+              <button id="resetPepcoOnline" class="button danger-outline" type="button">Reset defaults</button>
+            </div>
+            <div id="pepcoOnlineTable" class="table-wrap pepco-online-table-wrap"></div>
+          </section>
         </div>
+
         <div id="workspace-invoice" class="workspace-view">
-          <section class="panel blank-workspace"><h2>Invoice</h2><p>This tab is reserved for invoice preparation.</p></section>
+          <section class="panel invoice-workspace">
+            <div class="panel-heading">
+              <div>
+                <h2>Invoice</h2>
+                <p>Prepare an editable customer invoice and use the signature captured in Customer T&amp;C.</p>
+              </div>
+              <div class="sheet-actions">
+                <button id="saveInvoice" class="button primary" type="button">Save invoice</button>
+                <button id="printInvoice" class="button secondary" type="button">Print / Save PDF</button>
+              </div>
+            </div>
+            <div class="notice invoice-source-notice">
+              Customer signatures are loaded from signed audits stored in this browser. For signatures completed on a different iPad, central audit synchronization will be needed.
+            </div>
+            <div class="invoice-source-toolbar">
+              <select id="invoiceProjectSource"><option value="">Select an imported appointment…</option></select>
+              <button id="loadInvoiceWorkbook" class="button primary" type="button">Load from PEPCO Workbook</button>
+              <select id="invoiceAuditSource"><option value="">Select a locally signed audit…</option></select>
+              <button id="loadInvoiceAudit" class="button secondary" type="button">Load signed audit</button>
+              <label class="button secondary signature-upload">Upload customer signature<input id="invoiceSignatureUpload" type="file" accept="image/*" hidden></label>
+            </div>
+
+            <div id="invoiceDocument" class="invoice-document">
+              <div class="invoice-title">Invoice</div>
+              <div class="invoice-header">
+                <div class="invoice-brand"><img class="invoice-logo-image" src="/assets/ewpros-logo.jpg" alt="EWPros logo"><div><strong>EWPros</strong><span>Energy • Work • Professionals</span><span class="invoice-utility">Program: <b id="invoiceUtilityProgram">PEPCO</b></span></div></div>
+                <div class="invoice-meta">
+                  <label>Completion Date<input data-invoice-field="completionDate" type="date"></label>
+                  <label>Invoice Date<input data-invoice-field="invoiceDate" type="date"></label>
+                  <label>Invoice Number<input data-invoice-field="invoiceNumber"></label>
+                </div>
+              </div>
+
+              <div class="invoice-parties">
+                <div class="invoice-company">
+                  <strong>EWPros, LLC</strong>
+                  <span>400 East Pratt Street</span>
+                  <span>Baltimore, MD 21202</span>
+                  <span>Tel: 1-800-731-6750</span>
+                  <span>Support@EWPros.com</span>
+                </div>
+                <div class="invoice-to">
+                  <h3>INVOICE TO:</h3>
+                  <input data-invoice-field="invoiceToName" placeholder="Customer / company">
+                  <input data-invoice-field="invoiceToAddress" placeholder="Street address">
+                  <input data-invoice-field="invoiceToCityStateZip" placeholder="City, State ZIP">
+                  <input data-invoice-field="invoiceToPhone" placeholder="Phone">
+                  <input data-invoice-field="invoiceToEmail" placeholder="Email">
+                </div>
+              </div>
+
+              <div id="invoiceLinesTable" class="invoice-lines-wrap"></div>
+              <button id="addInvoiceLine" class="button secondary invoice-add-row" type="button">+ Add invoice line</button>
+
+              <p class="invoice-inclusions">Inclusions: Costs for material delivery and service provider transportation to and from the job site. Costs to prepare the worksite for installation, including costs to protect existing finishes, materials and components. Costs for site cleanup and debris removal once work is completed. Costs for tools or machinery used to complete the installation. Costs for purchase, delivery, and storage of the lighting fixtures. General contractor fees for directing and managing the lighting installation.</p>
+
+              <div class="invoice-summary">
+                <div class="invoice-notes-area"><textarea data-invoice-field="notes" placeholder="Invoice notes"></textarea></div>
+                <div class="invoice-totals">
+                  <label>Total Project Cost<input data-invoice-field="projectCost" type="number" step="0.01"></label>
+                  <label>Incentive Amount<input data-invoice-field="incentiveAmount" type="number" step="0.01"></label>
+                  <label>Material Cost<input data-invoice-field="materialCost" type="number" step="0.01"></label>
+                  <label>Installation Cost<input data-invoice-field="installationCost" type="number" step="0.01"></label>
+                  <label class="balance">Balance Due<input data-invoice-field="balanceDue" type="number" step="0.01"></label>
+                </div>
+              </div>
+
+              <div class="payment-line"><strong>PAYMENT INFORMATION</strong><span>Please make check payments payable to EWPros, LLC</span></div>
+              <div class="invoice-signatures">
+                <div class="signature-block authorized-signature-block">
+                  <div class="signature-placeholder authorized-signature">
+                    <img src="/assets/authorized-personnel-signature.jpg" alt="Authorized personnel signature">
+                  </div>
+                  <input class="authorized-personnel-name" data-invoice-field="authorizedPersonnel" placeholder="Authorized personnel name">
+                  <span>Authorized Personnel</span>
+                </div>
+                <div class="signature-block customer-signature-block">
+                  <div id="invoiceCustomerSignature" class="signature-placeholder signature-image-placeholder">No customer signature loaded</div>
+                  <span id="invoiceCustomerSignatureLabel">Representative/Owner (Customer)</span>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -183,6 +411,9 @@
 
   <div id="toast" class="toast hidden"></div>
   <script src="/p-data.js"></script>
+  <script src="/control-data.js"></script>
+  <script src="/pepco-online-data.js"></script>
+  <script src="/space-types.js"></script>
   <script src="/admin/admin.js"></script>
 </body>
 </html>

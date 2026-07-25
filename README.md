@@ -1,3 +1,5 @@
+# EWPros Auditor 2.5
+
 # EWPros Auditor Wizard 2.4
 
 This project contains two connected interfaces:
@@ -77,9 +79,9 @@ Each lighting line includes:
 - Dependent Existing Device Code
 - Quantity
 - Equipment photo
-- Proposed Device (from the PData catalog or typed manually)
+- Propose Measure (from the PData catalog or typed manually)
 - Proposed Qty
-- Ctrl#
+- Ctrl Qty
 - Notes
 - Duplicate and Delete actions
 
@@ -200,9 +202,19 @@ The administrator dashboard includes five workbook-style tabs:
 - **Main** — project-control dashboard with appointment and import information
 - **PData** — editable proposed-device table containing the 47 supplied records
 - **For_PEPCO_Wrkbk** — reserved for future workbook mapping
-- **For_PEPCO_Online** — reserved for future online-entry preparation
+- **For_PEPCO_Online** — editable portal-entry worksheet with PEPCO and BGE portal links, default payee information, dynamic application dates, save/reset, row controls, and CSV export
 - **Invoice** — reserved for future invoice preparation
 
-PData supports search, add, edit, duplicate, delete, reset, and CSV export. Browser edits are stored under `ewpros_pdata_rows_v1`. The default data remains in `p-data.js` and is also used to populate the auditor’s Proposed Device suggestions.
+PData supports search, add, edit, duplicate, delete, reset, and CSV export. Browser edits are stored under `ewpros_pdata_rows_v1`. The default data remains in `p-data.js` and is also used to populate the auditor’s Propose Measure suggestions.
 
 The requested Image3 was not attached to this update. The Main tab therefore uses a polished control-center layout and can be restyled to match Image3 after the image is uploaded.
+
+
+## Version 2.5 additions
+
+See `ADMIN-CONTROL-PEPCO-INVOICE-INSTRUCTIONS.md` for the Control Type, independent Control Data, PEPCO workbook, and invoice workflow.
+
+
+## Version 2.8
+
+See `ADMIN-INVOICE-ARCHIVE-V28-INSTRUCTIONS.md` for PEPCO model automation, utility-specific incentive calculations, sequential invoices, and complete project archive export/import.

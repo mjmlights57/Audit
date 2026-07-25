@@ -110,7 +110,7 @@
       'Auditor', 'Asana Assignee', 'Completion Date/Time', 'Audit Status', 'Area', 'Equipment #',
       'Category', 'Equipment Type', 'Manufacturer', 'Model', 'Serial Number', 'Quantity', 'Location',
       'Capacity', 'Efficiency', 'Condition', '>300 SF', 'Existing Device Category', 'Existing Device Code',
-      'Equipment Photo Captured', 'Equipment Photo File', 'Proposed Device', 'Proposed Quantity', 'Control Number',
+      'Equipment Photo Captured', 'Equipment Photo File', 'Propose Measure', 'Proposed Quantity', 'Control Quantity', 'Control Type',
       'Equipment Notes', 'Audit Notes', 'Customer Accepted Terms',
       'Signature Name', 'Signature', 'Address Confirmed', 'Front Photo Captured', 'Front Photo File',
       'Interior Section Completed', 'Exterior Section Completed'
@@ -126,7 +126,7 @@
         row.area, row.index || '', item.category, item.type, item.manufacturer, item.model, item.serial,
         item.quantity, item.location, item.capacity, item.efficiency, item.condition, item.over300sf,
         item.deviceCategory, item.deviceCode, item.photo ? 'Yes' : 'No', equipmentPhoto,
-        item.proposedDevice, item.proposedQty, item.ctrlNumber, item.notes,
+        item.proposedDevice, item.proposedQty, item.ctrlQty ?? item.ctrlNumber, item.ctrlType, item.notes,
         audit.notes, audit.tasks?.terms ? 'Yes' : 'No', audit.signatureName, audit.signature,
         audit.tasks?.confirm ? 'Yes' : 'No', audit.photos?.front ? 'Yes' : 'No', frontPhoto,
         audit.tasks?.interior ? 'Yes' : 'No', audit.tasks?.exterior ? 'Yes' : 'No'
@@ -302,7 +302,7 @@
           keyValue('Equipment photo captured', item.photo ? 'Yes' : 'No');
           keyValue('Proposed device', item.proposedDevice);
           keyValue('Proposed quantity', item.proposedQty || '');
-          keyValue('Control number', item.ctrlNumber);
+          keyValue('Control quantity', item.ctrlQty ?? item.ctrlNumber);
         } else {
           keyValue('Manufacturer / model', [item.manufacturer, item.model].filter(Boolean).join(' '));
           keyValue('Serial number', item.serial);

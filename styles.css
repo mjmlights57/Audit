@@ -22,3 +22,8 @@ button.compact{padding:7px 12px;min-height:auto}
 .lighting-table .line-notes{min-width:190px;width:100%;min-height:74px;padding:9px 8px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;resize:vertical;font:inherit}
 .lighting-table td:nth-child(8) input{min-width:190px}
 .lighting-table td:nth-child(11){min-width:210px}
+
+/* v2.5 control type field */
+.lighting-table{min-width:2050px}
+.lighting-table .ctrl-type-input{min-width:90px}
+.lighting-table td:nth-child(12){min-width:210px}

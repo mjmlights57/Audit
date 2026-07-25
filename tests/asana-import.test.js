@@ -3,13 +3,19 @@ const assert = require('node:assert/strict');
 const { parseNotes, parseAsanaCsv, dateAtNoonIso, normalizeAppointmentTime, normalizeUtilityProgram } = require('../netlify/functions/_asana-csv');
 
 test('extracts structured customer details from Asana Notes', () => {
-  const notes = `Notes: Facility Name: Sample Market\n\nNotes: Utility: Pepco\n\nNotes: Project ID: PEP-2026-001\n\nNotes: Account Number: 50000000000\n\nNotes: Contact Name: Jane Doe\n\nNotes: Phone: (301) 555-0100\n\nNotes: Email: jane@example.com\n\nNotes: Street Address: 100 Main St\n\nNotes: City: Bowie\n\nNotes: Zipcode: 20720`;
+  const notes = `Notes: Facility Name: Sample Market\n\nNotes: Utility: Pepco\n\nNotes: Project ID: PEP-2026-001\n\nNotes: Account Number: 50000000000\n\nNotes: Meter ID: MTR-123\n\nNotes: Address (cont): Suite 200\n\nNotes: Business Sector: Retail\n\nNotes: Building Type: Retail Store\n\nNotes: Square Footage: 4500\n\nNotes: Heating Fuel Type: Electric\n\nNotes: Contact Name: Jane Doe\n\nNotes: Phone: (301) 555-0100\n\nNotes: Email: jane@example.com\n\nNotes: Street Address: 100 Main St\n\nNotes: City: Bowie\n\nNotes: Zipcode: 20720`;
   const result = parseNotes(notes);
   assert.equal(result.facilityName, 'Sample Market');
   assert.equal(result.utility, 'Pepco');
   assert.equal(result.projectId, 'PEP-2026-001');
   assert.equal(result.accountNumber, '50000000000');
   assert.equal(result.contactName, 'Jane Doe');
+  assert.equal(result.meterId, 'MTR-123');
+  assert.equal(result.addressCont, 'Suite 200');
+  assert.equal(result.businessSector, 'Retail');
+  assert.equal(result.buildingType, 'Retail Store');
+  assert.equal(result.squareFootage, '4500');
+  assert.equal(result.heatingFuelType, 'Electric');
 });
 
 test('parses current Asana export columns and normalizes utility', () => {

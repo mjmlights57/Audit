@@ -13,11 +13,14 @@ function loadPData() {
 test('PData contains all supplied proposed-device rows and editable columns', () => {
   const data = loadPData();
   assert.equal(data.rows.length, 47);
-  assert.equal(data.columns.length, 18);
+  assert.equal(data.columns.length, 19);
   assert.ok(data.rows.some(row => row.proposeMeasure === '(2x4)LED40W'));
   assert.ok(data.rows.some(row => row.proposeMeasure === 'Top_Post_151W'));
   assert.ok(data.columns.some(column => column.key === 'proposeMeasure'));
   assert.ok(data.columns.some(column => column.key === 'reportedEfficacy'));
+  assert.ok(data.columns.some(column => column.key === 'bgeIncentives' && column.label === 'BGE Incentives'));
+  assert.ok(data.columns.some(column => column.key === 'pepcoIncentives' && column.label === 'PEPCO Incentives'));
+  assert.ok(data.columns.some(column => column.key === 'unitPrice' && column.label === 'Unit Price'));
 });
 
 test('auditor and admin pages load the shared PData catalog', () => {
@@ -29,7 +32,7 @@ test('auditor and admin pages load the shared PData catalog', () => {
 
 test('equipment workflow supports proposed fields and both areas', () => {
   const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-  assert.match(app, /Proposed Device/);
+  assert.match(app, /Propose Measure/);
   assert.match(app, /Proposed Qty/);
   assert.match(app, /data-lighting-area/);
   assert.match(app, /equipmentModes:\{interior:'hvac',exterior:'hvac'\}/);

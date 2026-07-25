@@ -12,4 +12,4 @@ The auditor app uses the built-in PData values as Proposed Device suggestions. I
 
 ## Equipment
 
-Interior and Exterior Equipment both provide HVAC and Lighting modes. Lighting lines include existing-device details, image, Proposed Device, Proposed Qty, Ctrl#, and Notes.
+Interior and Exterior Equipment both provide HVAC and Lighting modes. Lighting lines include existing-device details, image, Proposed Device, Proposed Qty, Ctrl Qty, and Notes.
