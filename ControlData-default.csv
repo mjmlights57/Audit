@@ -1,5 +1,0 @@
-﻿Ctrl Type,Control Type,Control Select,Control Measure Description,Control Measure Code,Other Control Type,Qty of Controls Proposed or Existing,Control Mounting,BGE Ctrl Incentives,PEPCO Ctrl Incentives
-OS,Occupancy Sensor (built-in fixt),Occupancy / Vacancy Controls,Occupancy control,LC 133,,,Fixture Mounted,,
-DL,Daylighting Sensor (built-in fixt),Daylight Controls,Daylight continuous dimming control,LC 121,,,Fixture Mounted,,
-OD,Dual: Occup+Daylight (built-in fixt),Dual Daylight / Occupancy Controls,Dual daylight & occupancy sensor (DOS),LC 111,,,Fixture Mounted,,
-Ph,Photocell For Exterior Fixt,Other Non-Incentivized Option,Other control type (non-incentivized),,New Photocell control (Exterior fixtures),,Fixture Mounted,,
