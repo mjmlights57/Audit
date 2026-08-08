@@ -1,0 +1,43 @@
+﻿Online Portal Section,Portal Field / Instruction,Value / Action
+Name Your Project,Project Name:,0
+Facility Information,First & Last Name: *,0
+Facility Information,Company: *,0
+Facility Information,Acct #: *,0
+Facility Information,Meter ID:,
+Facility Information,Address: *,0
+Facility Information,Address (cont):,
+Facility Information,City: *,0
+Facility Information,State/Province: *,0
+Facility Information,Postal Code: *,0
+Facility Information,Phone: *,0
+Facility Information,eMail: *,0
+Facility Information,Save contact for later use in your contact list?,Yes
+Customer Mailing Information,Same as home/business information,Check the Box
+Customer Mailing Information,Save this as a new contact in my profile contact list,Uncheck the Box
+Contractor Selection,Click Search for a Contractor and select EWPros,"EWPros,LLC"
+Contractor Selection,Contact Person,Mtijan Kamara
+Contractor Selection,Phone,1-800-731-6750
+(Optional) Additional Contact to Receive Project Information,Additional contact section,Skip Section
+Project Schedule,Expected Completion Date,Pick a date two months from today
+Savings and Incentive Information,Total Requested Incentive *,Extract data from workbook
+Savings and Incentive Information,Total Estimated kWh Savings *,Extract data from workbook
+Project Information,"Title of Utility Customer (e.g. Energy Manager, CFO, etc.) *",
+Project Information,Application is being completed by *,Service Provider
+Project Information,Application Date *,Today's date
+Project Information,Is the premise company a National Account? *,No
+Project Information,Installation Contractor - Retrofit Lighting,EWPros
+Project Information,"If ""Self-Install"" is selected",N/A
+Project Information,Installation Contractor - Sign Lighting *,N/A
+Project Information,"If ""Self-Install"" is selected",N/A
+Project Information,Business Type,Uncheck the Box
+Project Information,Business Sector *,
+Project Information,Building Type *,
+Project Information,Square Footage By Application,
+Payee Information,Check Payable To *,Contractor
+Payee Information,Check Payable Name *,"EWPros, LLC"
+Payee Information,Payee Contact Name *,Mtijan Kamara
+Payee Information,Payee Address *,4806 Silverbrook way
+Payee Information,Payee City *,Bowie
+Payee Information,Payee State *,MD
+Payee Information,Payee Zip Code *,20720
+Contractor Submitted Documents,Do you have additional documentation to upload with your application? *,Other Supporting Documents
