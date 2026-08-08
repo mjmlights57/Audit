@@ -1,0 +1,20 @@
+EWPros Integrated Business System v3.0
+Validation date: 2026-08-07
+
+Command: npm run check
+Result: PASS
+Automated tests: 39 passed, 0 failed
+
+Validation includes:
+- JavaScript syntax checks for existing auditor/admin code and new business modules/functions.
+- Existing PEPCO/BGE PDF and export tests.
+- Existing Asana/appointment import tests.
+- Existing invoice/archive/workbook tests.
+- CSV bank statement parsing.
+- OFX/QFX statement parsing.
+- Stable duplicate transaction hashing.
+- v3 CRM/accounting/project module presence.
+- v3 Supabase schema/table coverage.
+- Worker timesheet portal presence and separation from admin workspace.
+
+Note: Supabase SQL migration was reviewed statically in this environment; a live EWPros Supabase database was not connected, so the migration must be run in Supabase SQL Editor during deployment as documented.

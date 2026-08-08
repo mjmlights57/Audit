@@ -1,3 +1,17 @@
+# EWPros Integrated Business System 3.0
+
+Version 3.0 preserves the EWPros Auditor PWA and adds an integrated administrator business system.
+
+- **Auditor PWA:** `/`
+- **Administrator / CRM / Accounting:** `/admin/`
+- **Worker Timesheets:** `/time/`
+
+New v3 modules include CRM, five-business-line accounting, bank statement import and rules, projects, invoices/payments, W-2/1099 workers, worker self-service timesheets, mileage, dashboard, and consolidated/business-line reports. Existing appointment data is migrated into the CRM by `EWPROS-BUSINESS-SYSTEM-SCHEMA.sql`.
+
+**Upgrade instructions:** see `BUSINESS-SYSTEM-V3-SETUP.md` and `DEPLOY-NOW.md`.
+
+---
+
 # EWPros Auditor 2.5
 
 # EWPros Auditor Wizard 2.4

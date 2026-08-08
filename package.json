@@ -1,11 +1,11 @@
 {
   "name": "ewpros-auditor-wizard",
-  "version": "2.8.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "EWPros field auditor PWA with automated PEPCO workbook model mapping, utility-specific incentives, sequential invoices, branded signatures/logo, complete project archive export/import, BGE/PEPCO T&C PDFs, Supabase, and Netlify Functions",
+  "description": "EWPros integrated field auditor, CRM, multi-business accounting, bank import/rules, projects, timesheets, mileage, invoices, and reporting platform",
   "scripts": {
     "dev": "npx netlify dev",
-    "check": "node --check app.js && node --check lighting-catalog.js && node --check p-data.js && node --check control-data.js && node --check pepco-online-data.js && node --check space-types.js && node --check audit-export.js && node --check admin/admin.js && node --check netlify/functions/_admin-auth.js && node --check netlify/functions/_asana-csv.js && node --check netlify/functions/_supabase.js && node --check netlify/functions/admin-login.js && node --check netlify/functions/send-audit-email.js && node --check netlify/functions/get-appointments.js && node --check netlify/functions/admin-dashboard.js && node --check netlify/functions/import-appointments.js && node --test tests/*.test.js",
+    "check": "node --check app.js && node --check lighting-catalog.js && node --check p-data.js && node --check control-data.js && node --check pepco-online-data.js && node --check space-types.js && node --check audit-export.js && node --check admin/admin.js && node --check admin/business.js && node --check netlify/functions/_business-core.js && node --check netlify/functions/business-data.js && node --check netlify/functions/business-action.js && node --check netlify/functions/_bank-parser.js && node --check netlify/functions/bank-import.js && node --check netlify/functions/_admin-auth.js && node --check netlify/functions/_asana-csv.js && node --check netlify/functions/_supabase.js && node --check netlify/functions/admin-login.js && node --check netlify/functions/send-audit-email.js && node --check netlify/functions/get-appointments.js && node --check netlify/functions/admin-dashboard.js && node --check netlify/functions/import-appointments.js && node --test tests/*.test.js",
     "test": "node --test tests/*.test.js"
   },
   "engines": {
