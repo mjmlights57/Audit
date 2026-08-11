@@ -1,6 +1,6 @@
-# EWPros Integrated Business System v3.0.2
+# EWPros Integrated Business System v3.1.0
 
-> Stabilization release: banking/form fixes, safe delete/void controls, and category management. See `RELEASE-NOTES-V3.0.2.md` and `V3.0.2-UPGRADE.md`.
+> CRM-centered release: CRM is the master customer source, with customer CSV import/export and CRM scheduling/assignment into the existing Auditor Wizard. See `RELEASE-NOTES-V3.1.0.md` and `V3.1.0-UPGRADE.md`.
 
 # EWPros Integrated Business System 3.0
 

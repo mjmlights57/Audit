@@ -1,0 +1,2 @@
+display_name,company_name,contact_name,phone,email,service_address,city,state_code,zipcode,business_line,customer_type,source,notes
+ABC Hair Salon,ABC Hair Salon,Sarah Johnson,301-555-0100,sarah@example.com,123 Main Street,Bowie,MD,20715,Utility Programs,lead,Referral,Example row - replace or delete before importing

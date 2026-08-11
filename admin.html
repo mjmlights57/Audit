@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111827">
   <title>EWPros Administrator Dashboard</title>
   <link rel="icon" href="/assets/icon.svg">
-  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="/admin/admin.css?v=3.0.4">
 </head>
 <body>
   <div id="loginPanel" class="login-screen">
@@ -29,7 +29,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <div class="brand-mark small">A</div>
-        <div><strong>EWPros</strong><span>Administrator</span></div>
+        <div><strong>EWPros</strong><span>Administrator · v3.1.0</span></div>
       </div>
       <nav>
         <span class="nav-section-label">Business</span>
@@ -43,7 +43,7 @@
         <button class="nav-item" data-view="reports">Reports</button>
         <span class="nav-section-label">Audit tools</span>
         <button class="nav-item" data-view="workspace">Audit Workspace</button>
-        <button class="nav-item" data-view="import">Asana Import</button>
+        <button class="nav-item" data-view="import">Legacy Asana Import</button>
         <button class="nav-item" data-view="appointments">Appointments</button>
         <button class="nav-item" data-view="history">Import History</button>
       </nav>
@@ -95,7 +95,23 @@
             <label class="span-all">Notes<textarea name="notes" rows="2"></textarea></label><div class="form-actions span-all"><button class="button primary" type="submit">Save customer</button></div>
           </form>
         </details>
-        <section class="panel"><div class="panel-heading crm-heading"><div><h2>Customers &amp; leads</h2><p>Existing appointment customers are migrated here automatically.</p></div><input id="crmSearch" class="business-search" type="search" placeholder="Search name, email, phone, address…"></div><div id="crmCustomerTable" class="table-wrap"></div></section>
+        <div class="business-grid crm-io-grid">
+          <details class="panel business-form-panel" open><summary>Import customers</summary>
+            <form id="crmImportForm" class="business-form compact-form">
+              <label>Default business line<select name="default_business_line_id" id="crmImportBusinessLine" data-business-options="business-lines" required></select></label>
+              <label>Default stage<select name="default_customer_type"><option value="customer">Customer</option><option value="lead">Lead</option></select></label>
+              <label class="file-field">Customer CSV<input id="crmCustomerFile" type="file" accept=".csv,text/csv" required></label>
+              <label class="checkline"><input name="update_existing" type="checkbox"> Update matching customers with nonblank imported values</label>
+              <div class="form-actions"><button id="crmPreviewImport" class="button secondary" type="submit">Preview customer file</button><button id="crmConfirmImport" class="button primary" type="button" disabled>Import customers</button></div>
+            </form>
+            <div id="crmImportFileStatus" class="bank-file-status">No customer file selected.</div><div id="crmImportPreview"></div>
+          </details>
+          <section class="panel"><div class="panel-heading"><div><h2>Customer files</h2><p>CRM is the master customer list. Export a backup or working list at any time.</p></div></div>
+            <div class="form-actions"><button id="crmExportCustomers" class="button secondary" type="button">Export all customers (CSV)</button></div>
+            <p class="muted-cell">Imports check email first, then phone, then customer name + service address to reduce duplicates.</p>
+          </section>
+        </div>
+        <section class="panel"><div class="panel-heading crm-heading"><div><h2>Customers &amp; leads</h2><p>Master customer records used by appointments, projects, invoices, banking, mileage, and reporting.</p></div><div class="inline-actions"><input id="crmSearch" class="business-search" type="search" placeholder="Search name, email, phone, address…"><select id="crmStageFilter"><option value="all">All stages</option><option value="lead">Leads</option><option value="customer">Customers</option></select><select id="crmLineFilter"><option value="">All business lines</option></select></div></div><div id="crmCustomerTable" class="table-wrap"></div></section>
         <section id="crmDetailPanel" class="panel hidden"><div id="crmDetail"></div></section>
       </section>
 
@@ -115,7 +131,7 @@
             <label>Account name<input name="name" required placeholder="EWPros General Checking"></label><label>Institution<input name="institution"></label><label>Type<select name="account_type"><option value="bank">Bank</option><option value="credit_card">Credit card</option><option value="cash">Cash</option></select></label><label>Last 4<input name="last4" maxlength="4"></label><label>Opening balance<input type="number" step="0.01" name="opening_balance" value="0"></label><label>As of<input type="date" name="opening_balance_date"></label><button class="button primary" type="submit">Add account</button>
           </form><div id="bankAccountList" class="mini-list"></div></details>
           <section class="panel"><div class="panel-heading"><div><h2>Weekly bank import</h2><p>CSV, OFX, or QFX. Duplicates are ignored automatically.</p></div></div>
-            <form id="bankImportForm" class="business-form compact-form"><label>Account<select name="financial_account_id" id="bankImportAccount" required></select></label><label>Default business line<select name="default_business_line_id" id="bankImportBusinessLine"><option value="">Let rules / reviewer decide</option></select></label><label class="file-field">Statement<input id="bankStatementFile" type="file" accept=".csv,.ofx,.qfx,text/csv,application/x-ofx" required></label><div class="form-actions"><button id="previewBankImport" class="button secondary" type="submit">Preview statement</button><button id="confirmBankImport" class="button primary" type="button" disabled>Import transactions</button></div></form><div id="bankImportPreview"></div>
+            <form id="bankImportForm" class="business-form compact-form"><label>Account<select name="financial_account_id" id="bankImportAccount" required></select></label><label>Default business line<select name="default_business_line_id" id="bankImportBusinessLine"><option value="">Let rules / reviewer decide</option></select></label><label class="file-field">Statement<input id="bankStatementFile" type="file" accept=".csv,.ofx,.qfx,text/csv,application/x-ofx" required></label><div class="form-actions"><button id="previewBankImport" class="button secondary" type="submit">Preview statement</button><button id="confirmBankImport" class="button primary" type="button">Import transactions</button></div></form><div id="bankImportFileStatus" class="bank-file-status">No statement selected.</div><div id="bankImportPreview"></div>
           </section>
         </div>
         <section class="panel"><div class="panel-heading"><div><h2>Transaction review queue</h2><p>Rules pre-fill categories. Review each transaction before posting to the books.</p></div><select id="bankReviewFilter"><option value="pending">Pending review</option><option value="all">All imported</option><option value="posted">Posted</option><option value="ignored">Ignored</option></select></div><div id="bankTransactionTable" class="table-wrap"></div></section>
@@ -512,7 +528,7 @@
       <section id="view-appointments" class="view">
         <div class="panel">
           <div class="panel-heading appointments-heading">
-            <div><h2>All appointments</h2><p>Active, cancelled, and archived records imported from Asana</p></div>
+            <div><h2>All appointments</h2><p>Appointments created from CRM or imported from legacy Asana files</p></div>
             <div class="filters">
               <input id="appointmentSearch" type="search" placeholder="Search customer, address, Task ID…">
               <select id="appointmentStatusFilter">
@@ -541,7 +557,7 @@
   <script src="/control-data.js"></script>
   <script src="/pepco-online-data.js"></script>
   <script src="/space-types.js"></script>
-  <script src="/admin/admin.js"></script>
-  <script src="/admin/business.js"></script>
+  <script src="/admin/admin.js?v=3.0.4"></script>
+  <script src="/admin/business.js?v=3.0.4"></script>
 </body>
 </html>

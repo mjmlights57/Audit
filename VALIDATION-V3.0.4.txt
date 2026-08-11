@@ -1,0 +1,9 @@
+EWPros v3.0.4 validation
+- Import button has no HTML disabled attribute in admin.html or admin/index.html.
+- Import UI explicitly keeps the button clickable and validates the selected file at click time.
+- Both change and input file events refresh statement status.
+- Preview failures cannot leave Import transactions disabled.
+- Admin JS/CSS are cache-busted with ?v=3.0.4.
+- Worker removal uses an EWPros in-app confirmation dialog instead of browser window.confirm().
+- npm run check passed: 51/51 automated tests.
+- No new Supabase migration is required beyond v3.0.3.

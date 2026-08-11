@@ -1,0 +1,13 @@
+EWPros v3.1.0 validation
+
+- Built from the user-tested v3.0.4 release.
+- CRM is the master customer workspace.
+- Customer CSV preview/import/export is present.
+- CRM appointments reference the existing customer and optional project/business line/worker.
+- Appointments marked for Auditor Wizard require an assigned worker/auditor.
+- Legacy Asana CSV import remains available and links to CRM where possible.
+- Both /admin.html and /admin/ load v3.1.0 assets.
+- Banking/category/delete fixes from v3.0.4 are retained.
+- No .env file is included; .env.example contains placeholders only.
+- Full automated regression suite passed: 58/58 tests.
+- EWPROS-V3.1.0-MIGRATION.sql is additive and was not executed against the live Supabase database by ChatGPT.

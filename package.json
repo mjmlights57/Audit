@@ -1,11 +1,11 @@
 {
   "name": "ewpros-auditor-wizard",
-  "version": "3.0.3",
+  "version": "3.1.0",
   "private": true,
-  "description": "EWPros integrated field auditor, CRM, multi-business accounting, bank import/rules, projects, timesheets, mileage, invoices, and reporting platform",
+  "description": "EWPros v3.1 CRM-centered integrated field auditor, customer management, appointments, accounting, banking, projects, timesheets, mileage, invoices, and reporting platform",
   "scripts": {
     "dev": "npx netlify dev",
-    "check": "node --check app.js && node --check lighting-catalog.js && node --check p-data.js && node --check control-data.js && node --check pepco-online-data.js && node --check space-types.js && node --check audit-export.js && node --check admin/admin.js && node --check admin/business.js && node --check netlify/functions/_business-core.js && node --check netlify/functions/business-data.js && node --check netlify/functions/business-action.js && node --check netlify/functions/_bank-parser.js && node --check netlify/functions/bank-import.js && node --check netlify/functions/_admin-auth.js && node --check netlify/functions/_asana-csv.js && node --check netlify/functions/_supabase.js && node --check netlify/functions/admin-login.js && node --check netlify/functions/send-audit-email.js && node --check netlify/functions/get-appointments.js && node --check netlify/functions/admin-dashboard.js && node --check netlify/functions/import-appointments.js && node --test tests/*.test.js",
+    "check": "node --check app.js && node --check lighting-catalog.js && node --check p-data.js && node --check control-data.js && node --check pepco-online-data.js && node --check space-types.js && node --check audit-export.js && node --check admin/admin.js && node --check admin/business.js && node --check netlify/functions/_business-core.js && node --check netlify/functions/business-data.js && node --check netlify/functions/business-action.js && node --check netlify/functions/_crm-csv.js && node --check netlify/functions/crm-import.js && node --check netlify/functions/_bank-parser.js && node --check netlify/functions/bank-import.js && node --check netlify/functions/_admin-auth.js && node --check netlify/functions/_asana-csv.js && node --check netlify/functions/_supabase.js && node --check netlify/functions/admin-login.js && node --check netlify/functions/send-audit-email.js && node --check netlify/functions/get-appointments.js && node --check netlify/functions/admin-dashboard.js && node --check netlify/functions/import-appointments.js && node --test tests/*.test.js",
     "test": "node --test tests/*.test.js"
   },
   "engines": {
