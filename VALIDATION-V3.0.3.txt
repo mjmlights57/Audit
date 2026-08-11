@@ -1,0 +1,13 @@
+EWPros v3.0.3 validation
+Date: 2026-08-11
+
+npm run check: PASS
+Automated tests: 47/47 PASS
+
+Validated changes:
+- /admin.html exposes Accounting Categories panel.
+- Bank statement file selection enables Import transactions.
+- Preview remains optional and duplicate detection remains server-side.
+- Requested categories are included in additive migration.
+- Labor and old Subcontractor are removed from active selections.
+- Loan principal and sales tax payments use liability transaction types.
