@@ -1,6 +1,6 @@
 {
   "name": "ewpros-auditor-wizard",
-  "version": "3.0.0",
+  "version": "3.0.2",
   "private": true,
   "description": "EWPros integrated field auditor, CRM, multi-business accounting, bank import/rules, projects, timesheets, mileage, invoices, and reporting platform",
   "scripts": {

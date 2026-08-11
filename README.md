@@ -1,3 +1,7 @@
+# EWPros Integrated Business System v3.0.2
+
+> Stabilization release: banking/form fixes, safe delete/void controls, and category management. See `RELEASE-NOTES-V3.0.2.md` and `V3.0.2-UPGRADE.md`.
+
 # EWPros Integrated Business System 3.0
 
 Version 3.0 preserves the EWPros Auditor PWA and adds an integrated administrator business system.
