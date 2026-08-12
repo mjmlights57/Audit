@@ -1,0 +1,9 @@
+EWPros v3.1.1 validation
+- CRM main page reduced to one customer list with compact toolbar.
+- New customer and import forms are hidden modals until requested.
+- Customer details open in a right-side drawer with Overview, Appointments, Projects, and Activity tabs.
+- CRM scheduling, project creation, edit, notes, reminders, import/export, and delete/archive handlers remain connected.
+- Both admin.html and admin/index.html use the same CRM design.
+- Business bundle cache-busted with v=3.1.1.
+- No new Supabase migration required beyond v3.1.0.
+- 62/62 automated tests pass.

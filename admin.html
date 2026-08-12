@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111827">
   <title>EWPros Administrator Dashboard</title>
   <link rel="icon" href="/assets/icon.svg">
-  <link rel="stylesheet" href="/admin/admin.css?v=3.0.4">
+  <link rel="stylesheet" href="/admin/admin.css?v=3.1.1">
 </head>
 <body>
   <div id="loginPanel" class="login-screen">
@@ -29,7 +29,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <div class="brand-mark small">A</div>
-        <div><strong>EWPros</strong><span>Administrator · v3.1.0</span></div>
+        <div><strong>EWPros</strong><span>Administrator · v3.1.1</span></div>
       </div>
       <nav>
         <span class="nav-section-label">Business</span>
@@ -87,32 +87,59 @@
       </section>
 
       <section id="view-crm" class="view">
-        <details class="panel business-form-panel"><summary>Add lead / customer</summary>
-          <form id="customerForm" class="business-form form-grid">
-            <label>Name / company<input name="display_name" required></label><label>Primary business line<select name="primary_business_line_id" data-business-options="business-lines" required></select></label><label>Stage<select name="customer_type"><option value="lead">Lead</option><option value="customer" selected>Customer</option><option value="inactive">Inactive</option></select></label>
-            <label>Contact name<input name="contact_name"></label><label>Phone<input name="phone" type="tel"></label><label>Email<input name="email" type="email"></label>
-            <label class="span-2">Service address<input name="service_address"></label><label>City<input name="city"></label><label>State<input name="state_code" maxlength="2"></label><label>ZIP<input name="zipcode"></label>
-            <label class="span-all">Notes<textarea name="notes" rows="2"></textarea></label><div class="form-actions span-all"><button class="button primary" type="submit">Save customer</button></div>
-          </form>
-        </details>
-        <div class="business-grid crm-io-grid">
-          <details class="panel business-form-panel" open><summary>Import customers</summary>
+        <div class="crm-workspace">
+          <header class="crm-toolbar">
+            <div>
+              <p class="crm-kicker">Customer relationship management</p>
+              <h2>Customers</h2>
+            </div>
+            <div class="crm-toolbar-actions">
+              <button id="crmImportOpen" class="button secondary" type="button">Import</button>
+              <button id="crmExportCustomers" class="button secondary" type="button">Export</button>
+              <button id="crmNewCustomerOpen" class="button primary" type="button">+ New customer</button>
+            </div>
+          </header>
+
+          <div class="crm-filterbar">
+            <div class="crm-search-wrap"><span aria-hidden="true">⌕</span><input id="crmSearch" type="search" placeholder="Search customers…" aria-label="Search customers"></div>
+            <select id="crmStageFilter" aria-label="Filter by stage"><option value="all">All stages</option><option value="lead">Leads</option><option value="customer">Customers</option><option value="inactive">Inactive</option></select>
+            <select id="crmLineFilter" aria-label="Filter by business line"><option value="">All business lines</option></select>
+            <span id="crmListCount" class="crm-list-count"></span>
+          </div>
+
+          <section class="crm-list-surface" aria-label="Customer list">
+            <div id="crmCustomerTable" class="crm-customer-list"></div>
+          </section>
+        </div>
+
+        <div id="crmCustomerModal" class="crm-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="crmCustomerModalTitle">
+          <div class="crm-modal-card">
+            <div class="crm-modal-head"><div><p class="crm-kicker">CRM</p><h3 id="crmCustomerModalTitle">New customer</h3></div><button class="crm-icon-button" type="button" data-crm-close="crmCustomerModal" aria-label="Close">×</button></div>
+            <form id="customerForm" class="business-form form-grid">
+              <label>Name / company<input name="display_name" required></label><label>Primary business line<select name="primary_business_line_id" data-business-options="business-lines" required></select></label><label>Stage<select name="customer_type"><option value="lead">Lead</option><option value="customer" selected>Customer</option><option value="inactive">Inactive</option></select></label>
+              <label>Contact name<input name="contact_name"></label><label>Phone<input name="phone" type="tel"></label><label>Email<input name="email" type="email"></label>
+              <label class="span-2">Service address<input name="service_address"></label><label>City<input name="city"></label><label>State<input name="state_code" maxlength="2"></label><label>ZIP<input name="zipcode"></label>
+              <label class="span-all">Notes<textarea name="notes" rows="2"></textarea></label><div class="form-actions span-all crm-modal-actions"><button class="button secondary" type="button" data-crm-close="crmCustomerModal">Cancel</button><button class="button primary" type="submit">Save customer</button></div>
+            </form>
+          </div>
+        </div>
+
+        <div id="crmImportModal" class="crm-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="crmImportModalTitle">
+          <div class="crm-modal-card crm-import-card">
+            <div class="crm-modal-head"><div><p class="crm-kicker">Customer files</p><h3 id="crmImportModalTitle">Import customers</h3></div><button class="crm-icon-button" type="button" data-crm-close="crmImportModal" aria-label="Close">×</button></div>
+            <p class="crm-modal-copy">Upload a CSV, preview matches, then import. EWPros checks email, phone, then name + service address to reduce duplicates.</p>
             <form id="crmImportForm" class="business-form compact-form">
               <label>Default business line<select name="default_business_line_id" id="crmImportBusinessLine" data-business-options="business-lines" required></select></label>
               <label>Default stage<select name="default_customer_type"><option value="customer">Customer</option><option value="lead">Lead</option></select></label>
               <label class="file-field">Customer CSV<input id="crmCustomerFile" type="file" accept=".csv,text/csv" required></label>
               <label class="checkline"><input name="update_existing" type="checkbox"> Update matching customers with nonblank imported values</label>
-              <div class="form-actions"><button id="crmPreviewImport" class="button secondary" type="submit">Preview customer file</button><button id="crmConfirmImport" class="button primary" type="button" disabled>Import customers</button></div>
+              <div class="form-actions"><button id="crmPreviewImport" class="button secondary" type="submit">Preview</button><button id="crmConfirmImport" class="button primary" type="button" disabled>Import customers</button></div>
             </form>
             <div id="crmImportFileStatus" class="bank-file-status">No customer file selected.</div><div id="crmImportPreview"></div>
-          </details>
-          <section class="panel"><div class="panel-heading"><div><h2>Customer files</h2><p>CRM is the master customer list. Export a backup or working list at any time.</p></div></div>
-            <div class="form-actions"><button id="crmExportCustomers" class="button secondary" type="button">Export all customers (CSV)</button></div>
-            <p class="muted-cell">Imports check email first, then phone, then customer name + service address to reduce duplicates.</p>
-          </section>
+          </div>
         </div>
-        <section class="panel"><div class="panel-heading crm-heading"><div><h2>Customers &amp; leads</h2><p>Master customer records used by appointments, projects, invoices, banking, mileage, and reporting.</p></div><div class="inline-actions"><input id="crmSearch" class="business-search" type="search" placeholder="Search name, email, phone, address…"><select id="crmStageFilter"><option value="all">All stages</option><option value="lead">Leads</option><option value="customer">Customers</option></select><select id="crmLineFilter"><option value="">All business lines</option></select></div></div><div id="crmCustomerTable" class="table-wrap"></div></section>
-        <section id="crmDetailPanel" class="panel hidden"><div id="crmDetail"></div></section>
+
+        <aside id="crmDetailPanel" class="crm-detail-drawer hidden" aria-label="Customer details"><div id="crmDetail"></div></aside>
       </section>
 
       <section id="view-projects" class="view">
@@ -558,6 +585,6 @@
   <script src="/pepco-online-data.js"></script>
   <script src="/space-types.js"></script>
   <script src="/admin/admin.js?v=3.0.4"></script>
-  <script src="/admin/business.js?v=3.0.4"></script>
+  <script src="/admin/business.js?v=3.1.1"></script>
 </body>
 </html>
