@@ -1,0 +1,656 @@
+const crypto = require('crypto');
+const { json } = require('./_supabase');
+const { requireAdmin, parseBody, money, isMissingBusinessSchema, lookupByCode, createJournal, postOperationalTransaction } = require('./_business-core');
+
+const clean = value => value === '' || value === undefined ? null : value;
+const required = (value, label) => {
+  if (value === undefined || value === null || String(value).trim() === '') throw new Error(`${label} is required.`);
+  return value;
+};
+
+async function inheritProjectDimensions(supabase, body) {
+  if (!body.project_id) return body;
+  const { data: project, error } = await supabase.from('projects').select('customer_id,business_line_id').eq('id', body.project_id).maybeSingle();
+  if (error) throw error;
+  if (!project) return body;
+  return { ...body, customer_id: body.customer_id || project.customer_id || null, business_line_id: body.business_line_id || project.business_line_id || null };
+}
+
+async function createCustomer(supabase, body) {
+  const payload = {
+    customer_type: body.customer_type || 'customer',
+    primary_business_line_id: required(body.primary_business_line_id, 'Primary business line'),
+    display_name: required(body.display_name, 'Customer name'),
+    company_name: clean(body.company_name), contact_name: clean(body.contact_name), phone: clean(body.phone), email: clean(body.email),
+    service_address: clean(body.service_address), mailing_address: clean(body.mailing_address), city: clean(body.city), state_code: clean(body.state_code), zipcode: clean(body.zipcode),
+    source: body.source || 'manual', tags: Array.isArray(body.tags) ? body.tags : [], notes: clean(body.notes), active: body.active !== false
+  };
+  const { data, error } = await supabase.from('customers').insert(payload).select('*').single();
+  if (error) throw error;
+  return data;
+}
+
+async function createProject(supabase, body) {
+  required(body.business_line_id, 'Business line');
+  required(body.name, 'Project name');
+  const payload = {
+    customer_id: clean(body.customer_id), business_line_id: body.business_line_id, project_number: clean(body.project_number), name: body.name,
+    project_type: clean(body.project_type), status: body.status || 'lead', start_date: clean(body.start_date), end_date: clean(body.end_date),
+    service_address: clean(body.service_address), description: clean(body.description), quoted_amount: money(body.quoted_amount)
+  };
+  const { data, error } = await supabase.from('projects').insert(payload).select('*').single();
+  if (error) throw error;
+  return data;
+}
+
+function appointmentIdentity(dateValue) {
+  const date = String(dateValue || new Date().toISOString().slice(0,10)).replace(/-/g,'');
+  const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+  return `EW-${date}-${suffix}`;
+}
+
+async function createAppointment(supabase, body) {
+  const customerId = required(body.customer_id, 'Customer');
+  const scheduledDate = required(body.scheduled_date, 'Appointment date');
+  const { data:customer,error:customerError } = await supabase.from('customers').select('*').eq('id',customerId).single();
+  if (customerError) throw customerError;
+
+  let project=null;
+  if (body.project_id) {
+    const {data,error}=await supabase.from('projects').select('*').eq('id',body.project_id).single();
+    if(error)throw error;
+    if(data.customer_id && data.customer_id !== customerId) throw new Error('The selected project belongs to a different customer.');
+    project=data;
+  }
+
+  let worker=null;
+  if (body.assigned_worker_id) {
+    const {data,error}=await supabase.from('workers').select('id,first_name,last_name,email,active').eq('id',body.assigned_worker_id).single();
+    if(error)throw error;
+    if(!data.active)throw new Error('Choose an active worker/auditor.');
+    worker=data;
+  }
+
+  const businessLineId = body.business_line_id || project?.business_line_id || customer.primary_business_line_id;
+  required(businessLineId,'Business line');
+  const appointmentNumber = clean(body.appointment_number) || appointmentIdentity(scheduledDate);
+  const startTime = clean(body.scheduled_time) || '';
+  const endTime = clean(body.end_time) || '';
+  const utility = clean(body.utility) || '';
+  const contactName = clean(body.contact_name) || customer.contact_name || '';
+  const address = clean(body.service_address) || project?.service_address || customer.service_address || '';
+  const companyName = customer.company_name || customer.display_name;
+  const workerName = worker ? `${worker.first_name} ${worker.last_name}`.trim() : '';
+  const auditorVisible = body.auditor_visible !== false && body.auditor_visible !== 'false';
+  if (auditorVisible && !worker) throw new Error('Choose a worker/auditor before sending this appointment to Auditor Wizard.');
+  const crmStatus = worker ? 'assigned' : 'scheduled';
+  const payload = {
+    crm_customer_id: customer.id,
+    crm_project_id: project?.id || null,
+    crm_business_line_id: businessLineId,
+    assigned_worker_id: worker?.id || null,
+    assigned_worker_name: workerName,
+    assigned_worker_email: worker?.email || '',
+    asana_assignee_name: workerName,
+    asana_assignee_email: worker?.email || '',
+    scheduled_date: scheduledDate,
+    scheduled_time: startTime || null,
+    end_time: endTime || null,
+    crm_status: crmStatus,
+    appointment_type: clean(body.appointment_type) || 'Audit / Site Visit',
+    utility: utility || null,
+    account_number: clean(body.account_number),
+    company_name: companyName,
+    facility_name: companyName,
+    contact_name: contactName,
+    street_address: address,
+    city: customer.city || '',
+    state: customer.state_code || '',
+    zipcode: customer.zipcode || '',
+    project_id: project?.project_number || project?.name || null,
+    crm_notes: clean(body.appointment_notes)
+  };
+  const record = {
+    source_system:'crm',
+    external_task_id:appointmentNumber,
+    appointment_number:appointmentNumber,
+    customer_id:customer.id,
+    project_id:project?.id || null,
+    business_line_id:businessLineId,
+    assigned_worker_id:worker?.id || null,
+    appointment_type:clean(body.appointment_type) || 'Audit / Site Visit',
+    appointment_notes:clean(body.appointment_notes),
+    customer_name:customer.display_name,
+    customer_phone:customer.phone || null,
+    customer_email:customer.email || null,
+    service_address:address || null,
+    scheduled_start:`${scheduledDate}T12:00:00.000Z`,
+    timezone:'America/New_York',
+    appointment_status:crmStatus,
+    source_active:true,
+    source_last_seen_at:new Date().toISOString(),
+    source_payload:payload,
+    auditor_visible:auditorVisible,
+    crm_created:true
+  };
+  const {data,error}=await supabase.from('appointments').insert(record).select('*').single();
+  if(error)throw error;
+  if(customer.customer_type === 'lead') {
+    await supabase.from('customers').update({customer_type:'customer',updated_at:new Date().toISOString()}).eq('id',customer.id);
+  }
+  return data;
+}
+
+async function cancelAppointment(supabase, id) {
+  id=required(id,'Appointment');
+  const {data:current,error:readError}=await supabase.from('appointments').select('id,source_payload').eq('id',id).single();
+  if(readError)throw readError;
+  const sourcePayload={...(current.source_payload||{}),crm_status:'cancelled'};
+  const {data,error}=await supabase.from('appointments').update({appointment_status:'cancelled',source_payload:sourcePayload}).eq('id',id).select('*').single();
+  if(error)throw error;
+  return data;
+}
+
+function pinFields(pin) {
+  const value = String(pin || '').trim();
+  if (!value) return {};
+  if (!/^\d{4,10}$/.test(value)) throw new Error('Timesheet PIN must be 4–10 digits.');
+  const salt = crypto.randomBytes(16).toString('hex');
+  return { timesheet_pin_salt:salt, timesheet_pin_hash:crypto.createHash('sha256').update(`${salt}|${value}`).digest('hex') };
+}
+
+async function createWorker(supabase, body) {
+  const payload = {
+    worker_type: required(body.worker_type, 'Worker classification'), first_name: required(body.first_name, 'First name'), last_name: required(body.last_name, 'Last name'),
+    email: clean(body.email)?.toLowerCase() || null, phone: clean(body.phone), pay_type: body.pay_type || 'hourly', pay_rate: money(body.pay_rate),
+    overtime_rate: body.overtime_rate === '' || body.overtime_rate == null ? null : money(body.overtime_rate), active: body.active !== false,
+    timesheet_access_enabled: body.timesheet_access_enabled !== false, ...pinFields(body.timesheet_pin)
+  };
+  if (!payload.email && body.timesheet_pin) throw new Error('Worker email is required when assigning a timesheet PIN.');
+  const { data, error } = await supabase.from('workers').insert(payload).select('*').single();
+  if (error) throw error;
+  return data;
+}
+
+async function createAccount(supabase, body) {
+  const accountType = body.account_type || 'bank';
+  let ledger = null;
+  let createdLedgerId = null;
+  if (body.ledger_account_id) {
+    const { data, error } = await supabase.from('chart_accounts').select('*').eq('id', body.ledger_account_id).single();
+    if (error) throw error;
+    ledger = data;
+  } else {
+    const { data: existingCodes, error: codeError } = await supabase.from('chart_accounts').select('code');
+    if (codeError) throw codeError;
+    const used = new Set((existingCodes || []).map(row => Number(row.code)).filter(Number.isFinite));
+    const rangeStart = accountType === 'credit_card' ? 2020 : 1020;
+    const rangeEnd = accountType === 'credit_card' ? 2999 : 1999;
+    let code = rangeStart;
+    while (used.has(code) && code <= rangeEnd) code += 1;
+    if (code > rangeEnd) throw new Error('No available ledger account codes remain for this account type.');
+    const chartPayload = {
+      code: String(code),
+      name: required(body.name, 'Account name'),
+      account_type: accountType === 'credit_card' ? 'liability' : 'asset',
+      subtype: accountType === 'credit_card' ? 'credit_card' : 'bank',
+      active: true
+    };
+    const { data: created, error: ledgerError } = await supabase.from('chart_accounts').insert(chartPayload).select('*').single();
+    if (ledgerError) throw ledgerError;
+    ledger = created;
+    createdLedgerId = created.id;
+  }
+  const payload = {
+    name: required(body.name, 'Account name'), institution: clean(body.institution), account_type: accountType, last4: clean(body.last4),
+    ledger_account_id: ledger?.id || null, opening_balance: money(body.opening_balance), opening_balance_date: clean(body.opening_balance_date), active: true
+  };
+  const { data, error } = await supabase.from('financial_accounts').insert(payload).select('*').single();
+  if (error) {
+    if (createdLedgerId) await supabase.from('chart_accounts').delete().eq('id', createdLedgerId);
+    throw error;
+  }
+  const opening = money(body.opening_balance);
+  if (Math.abs(opening) > 0.004 && ledger?.id) {
+    try {
+      const equity = await lookupByCode(supabase, 'chart_accounts', 'code', '3200');
+      const amount = Math.abs(opening);
+      const assetIncrease = accountType !== 'credit_card' ? opening > 0 : opening < 0;
+      const lines = assetIncrease
+        ? [{ledger_account_id:ledger.id,debit:amount,credit:0},{ledger_account_id:equity.id,debit:0,credit:amount}]
+        : [{ledger_account_id:equity.id,debit:amount,credit:0},{ledger_account_id:ledger.id,debit:0,credit:amount}];
+      await createJournal(supabase,{entry_date:body.opening_balance_date||new Date().toISOString().slice(0,10),memo:`Opening balance — ${data.name}`,source_type:'opening_balance',source_id:data.id},lines);
+    } catch (journalError) {
+      await supabase.from('financial_accounts').delete().eq('id', data.id);
+      if (createdLedgerId) await supabase.from('chart_accounts').delete().eq('id', createdLedgerId);
+      throw journalError;
+    }
+  }
+  return data;
+}
+
+async function createRule(supabase, body) {
+  const keywords = Array.isArray(body.keywords) ? body.keywords : String(body.keywords || '').split(/[\n,]+/).map(v => v.trim()).filter(Boolean);
+  if (!keywords.length) throw new Error('Enter at least one keyword.');
+  const payload = {
+    name: required(body.name, 'Rule name'), keywords, match_mode: body.match_mode || 'any', category_id: clean(body.category_id),
+    business_line_id: clean(body.business_line_id), customer_id: clean(body.customer_id), project_id: clean(body.project_id),
+    active: body.active !== false, priority: Number(body.priority) || 100
+  };
+  const { data, error } = await supabase.from('transaction_rules').insert(payload).select('*').single();
+  if (error) throw error;
+  return data;
+}
+
+async function countWhere(supabase, table, column, value) {
+  const { count, error } = await supabase.from(table).select('id', { count:'exact', head:true }).eq(column, value);
+  if (error) throw error;
+  return Number(count) || 0;
+}
+
+async function anyReferences(supabase, refs) {
+  for (const [table, column, value] of refs) if (await countWhere(supabase, table, column, value)) return true;
+  return false;
+}
+
+async function createCategory(supabase, body) {
+  const name = String(required(body.name, 'Category name')).trim();
+  const behavior = String(body.behavior || 'expense').toLowerCase();
+  if (!['income','expense'].includes(behavior)) throw new Error('Custom categories can be Income or Expense.');
+  const { data: existing, error: existingError } = await supabase.from('transaction_categories').select('*').ilike('name', name).limit(1).maybeSingle();
+  if (existingError) throw existingError;
+  if (existing) {
+    if (!existing.active) {
+      const { data, error } = await supabase.from('transaction_categories').update({active:true}).eq('id', existing.id).select('*').single();
+      if (error) throw error;
+      return data;
+    }
+    throw new Error('A category with this name already exists.');
+  }
+  const { data: codes, error: codeError } = await supabase.from('chart_accounts').select('code');
+  if (codeError) throw codeError;
+  const used = new Set((codes || []).map(row => Number(row.code)).filter(Number.isFinite));
+  const start = behavior === 'income' ? 4500 : 6500;
+  const end = behavior === 'income' ? 4999 : 7999;
+  let code = start;
+  while (used.has(code) && code <= end) code += 1;
+  if (code > end) throw new Error('No available ledger codes remain for custom categories.');
+  const { data: ledger, error: ledgerError } = await supabase.from('chart_accounts').insert({
+    code:String(code), name, account_type:behavior, subtype:behavior === 'income' ? 'operating_income' : 'operating_expense', active:true
+  }).select('*').single();
+  if (ledgerError) throw ledgerError;
+  const { data, error } = await supabase.from('transaction_categories').insert({name,behavior,ledger_account_id:ledger.id,active:true}).select('*').single();
+  if (error) {
+    await supabase.from('chart_accounts').delete().eq('id', ledger.id);
+    throw error;
+  }
+  return data;
+}
+
+async function voidFinancialTransaction(supabase, id, reason='Voided by administrator') {
+  const { data: tx, error } = await supabase.from('financial_transactions').select('*').eq('id', required(id,'Transaction')).single();
+  if (error) throw error;
+  if (tx.voided_at) return tx;
+  const now = new Date().toISOString();
+  const { data: updated, error: updateError } = await supabase.from('financial_transactions').update({voided_at:now,void_reason:reason}).eq('id',tx.id).select('*').single();
+  if (updateError) throw updateError;
+  const { error: journalError } = await supabase.from('journal_entries').update({status:'void'}).eq('source_id',tx.id).eq('status','posted');
+  if (journalError) throw journalError;
+  return updated;
+}
+
+async function deleteOrArchiveCustomer(supabase, id) {
+  id = required(id,'Customer');
+  const used = await anyReferences(supabase,[
+    ['appointments','customer_id',id],['projects','customer_id',id],['invoices','customer_id',id],['payments','customer_id',id],['financial_transactions','customer_id',id],['bank_transactions','customer_id',id],['mileage_trips','customer_id',id]
+  ]);
+  if (used) {
+    const { data,error } = await supabase.from('customers').update({active:false}).eq('id',id).select('*').single();
+    if (error) throw error;
+    return {mode:'archived',record:data};
+  }
+  const { error } = await supabase.from('customers').delete().eq('id',id);
+  if (error) throw error;
+  return {mode:'deleted'};
+}
+
+async function deleteOrArchiveProject(supabase, id) {
+  id = required(id,'Project');
+  const used = await anyReferences(supabase,[
+    ['appointments','project_id',id],['invoices','project_id',id],['payments','project_id',id],['financial_transactions','project_id',id],['bank_transactions','project_id',id],['time_entries','project_id',id],['worker_payments','project_id',id],['mileage_trips','project_id',id]
+  ]);
+  if (used) {
+    const { data,error } = await supabase.from('projects').update({status:'archived'}).eq('id',id).select('*').single();
+    if (error) throw error;
+    return {mode:'archived',record:data};
+  }
+  const { error } = await supabase.from('projects').delete().eq('id',id);
+  if (error) throw error;
+  return {mode:'deleted'};
+}
+
+async function deleteOrDeactivateAccount(supabase, id) {
+  id = required(id,'Account');
+  const { data:account,error:accountError } = await supabase.from('financial_accounts').select('*').eq('id',id).single();
+  if (accountError) throw accountError;
+  const used = await anyReferences(supabase,[
+    ['bank_import_batches','financial_account_id',id],['bank_transactions','financial_account_id',id],['financial_transactions','financial_account_id',id],['worker_payments','financial_account_id',id],['payments','financial_account_id',id]
+  ]);
+  if (used) {
+    const { data,error } = await supabase.from('financial_accounts').update({active:false}).eq('id',id).select('*').single();
+    if (error) throw error;
+    return {mode:'deactivated',record:data};
+  }
+  await supabase.from('journal_entries').delete().eq('source_type','opening_balance').eq('source_id',id);
+  const { error } = await supabase.from('financial_accounts').delete().eq('id',id);
+  if (error) throw error;
+  if (account.ledger_account_id) {
+    const otherAccountRefs = await countWhere(supabase,'financial_accounts','ledger_account_id',account.ledger_account_id);
+    const categoryRefs = await countWhere(supabase,'transaction_categories','ledger_account_id',account.ledger_account_id);
+    if (!otherAccountRefs && !categoryRefs) await supabase.from('chart_accounts').delete().eq('id',account.ledger_account_id);
+  }
+  return {mode:'deleted'};
+}
+
+async function deleteOrDeactivateVendor(supabase, id) {
+  id = required(id,'Vendor');
+  const used = await anyReferences(supabase,[['financial_transactions','vendor_id',id],['bank_transactions','vendor_id',id],['journal_lines','vendor_id',id]]);
+  if (used) {
+    const { data,error }=await supabase.from('vendors').update({active:false}).eq('id',id).select('*').single();
+    if(error)throw error;
+    return {mode:'deactivated',record:data};
+  }
+  const {error}=await supabase.from('vendors').delete().eq('id',id); if(error)throw error;
+  return {mode:'deleted'};
+}
+
+async function deleteOrDeactivateWorker(supabase, id) {
+  id = required(id,'Worker');
+  const used = await anyReferences(supabase,[['appointments','assigned_worker_id',id],['time_entries','worker_id',id],['worker_payments','worker_id',id],['mileage_trips','worker_id',id],['project_workers','worker_id',id]]);
+  if (used) {
+    const { data,error }=await supabase.from('workers').update({active:false,timesheet_access_enabled:false}).eq('id',id).select('*').single();
+    if(error)throw error;
+    return {mode:'deactivated',record:data};
+  }
+  const {error}=await supabase.from('workers').delete().eq('id',id); if(error)throw error;
+  return {mode:'deleted'};
+}
+
+async function deleteOrDeactivateCategory(supabase, id) {
+  id = required(id,'Category');
+  const { data:category,error:categoryError }=await supabase.from('transaction_categories').select('*').eq('id',id).single();
+  if(categoryError)throw categoryError;
+  const used = await anyReferences(supabase,[['financial_transactions','category_id',id],['bank_transactions','category_id',id],['transaction_rules','category_id',id]]);
+  if (used) {
+    const {data,error}=await supabase.from('transaction_categories').update({active:false}).eq('id',id).select('*').single(); if(error)throw error;
+    return {mode:'deactivated',record:data};
+  }
+  const {error}=await supabase.from('transaction_categories').delete().eq('id',id); if(error)throw error;
+  if(category.ledger_account_id){
+    const refs=await countWhere(supabase,'transaction_categories','ledger_account_id',category.ledger_account_id);
+    const {data:ledger}=await supabase.from('chart_accounts').select('code').eq('id',category.ledger_account_id).maybeSingle();
+    const code=Number(ledger?.code);
+    if(!refs && ((category.behavior==='income'&&code>=4500)||(category.behavior==='expense'&&code>=6500))) await supabase.from('chart_accounts').delete().eq('id',category.ledger_account_id);
+  }
+  return {mode:'deleted'};
+}
+
+async function deleteBankTransaction(supabase, id) {
+  id=required(id,'Bank transaction');
+  const {data:bank,error}=await supabase.from('bank_transactions').select('*').eq('id',id).single(); if(error)throw error;
+  if(bank.review_status==='posted'){
+    const {data:tx,error:txError}=await supabase.from('financial_transactions').select('id,voided_at').eq('bank_transaction_id',id).maybeSingle(); if(txError)throw txError;
+    if(tx && !tx.voided_at) await voidFinancialTransaction(supabase,tx.id,'Bank transaction voided by administrator');
+    const {data,error:updateError}=await supabase.from('bank_transactions').update({review_status:'ignored',review_notes:'Voided by administrator',reviewed_at:new Date().toISOString()}).eq('id',id).select('*').single();
+    if(updateError)throw updateError;
+    return {mode:'voided',record:data};
+  }
+  const {error:deleteError}=await supabase.from('bank_transactions').delete().eq('id',id); if(deleteError)throw deleteError;
+  return {mode:'deleted'};
+}
+
+async function undoBankImport(supabase, id) {
+  id=required(id,'Import batch');
+  const {data:batch,error:batchError}=await supabase.from('bank_import_batches').select('*').eq('id',id).single(); if(batchError)throw batchError;
+  const {data:rows,error:rowsError}=await supabase.from('bank_transactions').select('id,review_status').eq('import_batch_id',id); if(rowsError)throw rowsError;
+  for(const row of rows||[]){
+    if(row.review_status==='posted'){
+      const {data:tx,error:txError}=await supabase.from('financial_transactions').select('id,voided_at').eq('bank_transaction_id',row.id).maybeSingle(); if(txError)throw txError;
+      if(tx && !tx.voided_at) await voidFinancialTransaction(supabase,tx.id,`Bank import undone: ${batch.filename}`);
+    }
+  }
+  const {error:deleteError}=await supabase.from('bank_transactions').delete().eq('import_batch_id',id); if(deleteError)throw deleteError;
+  const {data:updated,error:updateError}=await supabase.from('bank_import_batches').update({status:'undone',undone_at:new Date().toISOString(),undone_rows:(rows||[]).length}).eq('id',id).select('*').single(); if(updateError)throw updateError;
+  return updated;
+}
+
+async function recordTransaction(supabase, body) {
+  body = await inheritProjectDimensions(supabase, body);
+  required(body.transaction_date, 'Transaction date');
+  required(body.financial_account_id, 'Financial account');
+  required(body.category_id, 'Category');
+  const amount = Math.abs(money(body.amount));
+  if (!amount) throw new Error('Amount must be greater than zero.');
+  const { data: category, error: categoryError } = await supabase.from('transaction_categories').select('id,behavior').eq('id', body.category_id).single();
+  if (categoryError) throw categoryError;
+  const transactionType = body.transaction_type || category.behavior;
+  if (['income','expense','customer_payment','vendor_payment'].includes(transactionType) && !body.business_line_id) throw new Error('Choose a business line for income or expense activity.');
+  const payload = {
+    transaction_date: body.transaction_date, transaction_type: transactionType, amount, description: body.description || '', category_id: body.category_id,
+    business_line_id: clean(body.business_line_id), customer_id: clean(body.customer_id), project_id: clean(body.project_id), vendor_id: clean(body.vendor_id),
+    financial_account_id: body.financial_account_id, personal: transactionType === 'owner_draw', source: body.source || 'manual'
+  };
+  const { data: inserted, error } = await supabase.from('financial_transactions').insert(payload).select('*').single();
+  if (error) throw error;
+  try {
+    const posted = await postOperationalTransaction(supabase, inserted, { source_id: inserted.id, counter_financial_account_id: clean(body.counter_financial_account_id) });
+    return { ...inserted, journal_id: posted.journalId };
+  } catch (postingError) {
+    await supabase.from('financial_transactions').delete().eq('id', inserted.id);
+    throw postingError;
+  }
+}
+
+async function reviewBankTransaction(supabase, body) {
+  body = await inheritProjectDimensions(supabase, body);
+  required(body.id, 'Bank transaction');
+  const patch = {
+    category_id: clean(body.category_id), business_line_id: clean(body.business_line_id), customer_id: clean(body.customer_id), project_id: clean(body.project_id), vendor_id: clean(body.vendor_id),
+    review_notes: clean(body.review_notes)
+  };
+  if (body.status === 'ignored') {
+    patch.review_status = 'ignored'; patch.reviewed_at = new Date().toISOString();
+    const { data, error } = await supabase.from('bank_transactions').update(patch).eq('id', body.id).select('*').single();
+    if (error) throw error;
+    return data;
+  }
+  if (body.status !== 'posted') {
+    const { data, error } = await supabase.from('bank_transactions').update(patch).eq('id', body.id).select('*').single();
+    if (error) throw error;
+    return data;
+  }
+  if (!patch.category_id) throw new Error('Choose a category before posting.');
+  const { data: existing } = await supabase.from('financial_transactions').select('id').eq('bank_transaction_id', body.id).maybeSingle();
+  if (existing) throw new Error('This bank transaction has already been posted.');
+  const { data: bankTx, error: bankError } = await supabase.from('bank_transactions').select('*').eq('id', body.id).single();
+  if (bankError) throw bankError;
+  const { data: category, error: categoryError } = await supabase.from('transaction_categories').select('id,behavior').eq('id', patch.category_id).single();
+  if (categoryError) throw categoryError;
+  const amount = Math.abs(money(bankTx.amount));
+  const type = category.behavior;
+  if (['income','expense','customer_payment','vendor_payment'].includes(type) && !patch.business_line_id) throw new Error('Choose a business line before posting this income or expense.');
+  const ft = {
+    transaction_date: bankTx.transaction_date, transaction_type: type, amount, description: bankTx.description, category_id: patch.category_id,
+    business_line_id: patch.business_line_id, customer_id: patch.customer_id, project_id: patch.project_id, vendor_id: patch.vendor_id,
+    financial_account_id: bankTx.financial_account_id, bank_transaction_id: bankTx.id, personal: type === 'owner_draw', source: 'bank_import'
+  };
+  const { data: inserted, error: insertError } = await supabase.from('financial_transactions').insert(ft).select('*').single();
+  if (insertError) throw insertError;
+  try {
+    const posted = await postOperationalTransaction(supabase, inserted, { source_id: inserted.id, counter_financial_account_id: clean(body.counter_financial_account_id), direction: money(bankTx.amount) > 0 ? 'in' : 'out' });
+    patch.review_status = 'posted'; patch.personal = type === 'owner_draw'; patch.reviewed_at = new Date().toISOString();
+    const { data: updated, error: updateError } = await supabase.from('bank_transactions').update(patch).eq('id', body.id).select('*').single();
+    if (updateError) throw updateError;
+    return { ...updated, journal_id: posted.journalId };
+  } catch (postingError) {
+    await supabase.from('financial_transactions').delete().eq('id', inserted.id);
+    throw postingError;
+  }
+}
+
+async function recordInvoicePayment(supabase, body) {
+  const invoiceId = required(body.invoice_id, 'Invoice');
+  const accountId = required(body.financial_account_id, 'Financial account');
+  const amount = Math.abs(money(body.amount));
+  if (!amount) throw new Error('Payment amount must be greater than zero.');
+  const { data: invoice, error: invoiceError } = await supabase.from('invoices').select('*').eq('id', invoiceId).single();
+  if (invoiceError) throw invoiceError;
+  if (invoice.status === 'void') throw new Error('A void invoice cannot receive a payment.');
+  const balance = money(invoice.balance_due);
+  if (amount > balance + 0.009) throw new Error(`Payment exceeds the current balance of ${balance.toFixed(2)}.`);
+
+  let categoryName = 'Other Income';
+  if (invoice.business_line_id) {
+    const { data: line } = await supabase.from('business_lines').select('code').eq('id', invoice.business_line_id).maybeSingle();
+    categoryName = ({
+      strikecheck_inspections: 'Inspection Income', strikecheck_referrals: 'Referral Income', utility_programs: 'Utility Revenue',
+      ewpros_electrical: 'Electrical Revenue', ewpros_renovation: 'Renovation Revenue'
+    })[line?.code] || 'Other Income';
+  }
+  const { data: category, error: categoryError } = await supabase.from('transaction_categories').select('id,behavior').eq('name', categoryName).single();
+  if (categoryError) throw categoryError;
+  const paymentDate = body.payment_date || new Date().toISOString().slice(0,10);
+  const { data: payment, error: paymentError } = await supabase.from('payments').insert({
+    invoice_id:invoice.id, customer_id:invoice.customer_id, project_id:invoice.project_id, business_line_id:invoice.business_line_id,
+    financial_account_id:accountId, payment_date:paymentDate, amount, payment_method:clean(body.payment_method), reference:clean(body.reference), notes:clean(body.notes)
+  }).select('*').single();
+  if (paymentError) throw paymentError;
+
+  const ftPayload = {
+    transaction_date:paymentDate, transaction_type:'income', amount, description:`Invoice ${invoice.invoice_number} payment${body.reference?` — ${body.reference}`:''}`,
+    category_id:category.id, business_line_id:invoice.business_line_id, customer_id:invoice.customer_id, project_id:invoice.project_id,
+    financial_account_id:accountId, personal:false, source:'invoice_payment'
+  };
+  const { data: tx, error: txError } = await supabase.from('financial_transactions').insert(ftPayload).select('*').single();
+  if (txError) { await supabase.from('payments').delete().eq('id',payment.id); throw txError; }
+  try {
+    await postOperationalTransaction(supabase, tx, { source_id: tx.id });
+    const newPaid = money(invoice.amount_paid) + amount;
+    const newBalance = Math.max(0, money(invoice.total) - newPaid);
+    const newStatus = newBalance <= 0.009 ? 'paid' : 'partial';
+    const { data: updated, error: updateError } = await supabase.from('invoices').update({amount_paid:newPaid,balance_due:newBalance,status:newStatus}).eq('id',invoice.id).select('*').single();
+    if (updateError) throw updateError;
+    return { payment, invoice:updated, transaction:tx };
+  } catch (error) {
+    await supabase.from('financial_transactions').delete().eq('id',tx.id);
+    await supabase.from('payments').delete().eq('id',payment.id);
+    throw error;
+  }
+}
+
+async function saveInvoice(supabase, body) {
+  const invoice = body.invoice || {};
+  const number = required(invoice.invoiceNumber || invoice.invoice_number, 'Invoice number');
+  let project = null;
+  const sourceProjectId = invoice.sourceProjectId || body.sourceProjectId;
+  if (sourceProjectId) {
+    const { data: byExternal, error: externalError } = await supabase.from('projects').select('*').eq('external_key', String(sourceProjectId)).limit(1).maybeSingle();
+    if (externalError) throw externalError;
+    project = byExternal || null;
+    if (!project) {
+      const { data: byNumber, error: numberError } = await supabase.from('projects').select('*').eq('project_number', String(sourceProjectId)).limit(1).maybeSingle();
+      if (numberError) throw numberError;
+      project = byNumber || null;
+    }
+  }
+  let customerId = project?.customer_id || clean(body.customer_id);
+  let businessLineId = project?.business_line_id || clean(body.business_line_id);
+  if (!businessLineId) {
+    const code = String(invoice.utilityProgram || '').toUpperCase().match(/BGE|PEPCO/) ? 'utility_programs' : 'ewpros_electrical';
+    businessLineId = (await lookupByCode(supabase, 'business_lines', 'code', code))?.id || null;
+  }
+  if (!customerId && invoice.invoiceToName) {
+    const { data: existing } = await supabase.from('customers').select('id').ilike('display_name', invoice.invoiceToName).limit(1).maybeSingle();
+    if (existing) customerId = existing.id;
+    else {
+      const { data: created, error } = await supabase.from('customers').insert({ display_name: invoice.invoiceToName, primary_business_line_id:businessLineId, phone: clean(invoice.invoiceToPhone), email: clean(invoice.invoiceToEmail), service_address: clean(invoice.invoiceToAddress), source:'invoice' }).select('id').single();
+      if (error) throw error;
+      customerId = created.id;
+    }
+  }
+  const total = money(invoice.projectCost || invoice.total || invoice.balanceDue);
+  const balance = money(invoice.balanceDue ?? total);
+  const payload = {
+    invoice_number: String(number), customer_id: customerId, project_id: project?.id || clean(body.project_id), business_line_id: businessLineId,
+    invoice_date: invoice.invoiceDate || new Date().toISOString().slice(0,10), completion_date: clean(invoice.completionDate), due_date: clean(body.due_date), status: body.status || 'draft',
+    subtotal: total, incentive_amount: money(invoice.incentiveAmount), total, amount_paid: Math.max(0,total-balance), balance_due: balance,
+    notes: clean(invoice.notes), legacy_payload: invoice
+  };
+  const { data: saved, error } = await supabase.from('invoices').upsert(payload, { onConflict:'invoice_number' }).select('*').single();
+  if (error) throw error;
+  await supabase.from('invoice_items').delete().eq('invoice_id', saved.id);
+  const lines = (invoice.lines || []).filter(line => String(line.measureDescription || line.description || '').trim() || money(line.lineTotal));
+  if (lines.length) {
+    const items = lines.map((line, index) => ({ invoice_id:saved.id, description:line.measureDescription || line.description || line.modelNumber || `Invoice line ${index+1}`, quantity:money(line.quantity || 1), unit_price:money(line.unitPrice), line_total:money(line.lineTotal), sort_order:index }));
+    const { error: itemError } = await supabase.from('invoice_items').insert(items);
+    if (itemError) throw itemError;
+  }
+  return saved;
+}
+
+exports.handler = async event => {
+  if (event.httpMethod !== 'POST') return json(405, { error:'Method not allowed.' });
+  const auth = requireAdmin(event); if (auth.error) return auth.error;
+  const { supabase } = auth;
+  try {
+    const body = parseBody(event); const action = body.action;
+    let data;
+    if (action === 'create_customer') data = await createCustomer(supabase, body);
+    else if (action === 'update_customer') { const id=required(body.id,'Customer'); const { data:d,error }=await supabase.from('customers').update(body.patch || {}).eq('id',id).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'delete_customer') data = await deleteOrArchiveCustomer(supabase, body.id);
+    else if (action === 'add_customer_note') { const {data:d,error}=await supabase.from('customer_notes').insert({customer_id:required(body.customer_id,'Customer'),note:required(body.note,'Note'),created_by:'Administrator'}).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'delete_customer_note') { const {error}=await supabase.from('customer_notes').delete().eq('id',required(body.id,'Note')); if(error)throw error; data={mode:'deleted'}; }
+    else if (action === 'add_reminder') { const {data:d,error}=await supabase.from('reminders').insert({customer_id:clean(body.customer_id),project_id:clean(body.project_id),title:required(body.title,'Reminder title'),details:clean(body.details),due_at:clean(body.due_at)}).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'complete_reminder') { const {data:d,error}=await supabase.from('reminders').update({status:'completed',completed_at:new Date().toISOString()}).eq('id',required(body.id,'Reminder')).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'delete_reminder') { const {error}=await supabase.from('reminders').delete().eq('id',required(body.id,'Reminder')); if(error)throw error; data={mode:'deleted'}; }
+    else if (action === 'create_project') data = await createProject(supabase, body);
+    else if (action === 'create_appointment') data = await createAppointment(supabase, body);
+    else if (action === 'cancel_appointment') data = await cancelAppointment(supabase, body.id);
+    else if (action === 'update_project') { const {data:d,error}=await supabase.from('projects').update(body.patch || {}).eq('id',required(body.id,'Project')).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'delete_project') data = await deleteOrArchiveProject(supabase, body.id);
+    else if (action === 'create_worker') data = await createWorker(supabase, body);
+    else if (action === 'delete_worker') data = await deleteOrDeactivateWorker(supabase, body.id);
+    else if (action === 'set_worker_timesheet_pin') { const id=required(body.id,'Worker'); const patch={...pinFields(required(body.timesheet_pin,'Timesheet PIN')),timesheet_access_enabled:body.timesheet_access_enabled!==false}; const {data:d,error}=await supabase.from('workers').update(patch).eq('id',id).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'add_time_entry') { const p={worker_id:required(body.worker_id,'Worker'),project_id:clean(body.project_id),business_line_id:required(body.business_line_id,'Business line'),work_date:required(body.work_date,'Work date'),regular_hours:money(body.regular_hours),overtime_hours:money(body.overtime_hours),notes:clean(body.notes),approval_status:body.approval_status||'submitted'}; const {data:d,error}=await supabase.from('time_entries').insert(p).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'update_time_status') { const status=required(body.status,'Status'); const patch={approval_status:status,approved_at:status==='approved'?new Date().toISOString():null}; const {data:d,error}=await supabase.from('time_entries').update(patch).eq('id',required(body.id,'Time entry')).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'delete_time_entry') { const id=required(body.id,'Time entry'); const {data:t,error:e}=await supabase.from('time_entries').select('approval_status').eq('id',id).single(); if(e)throw e; if(t.approval_status==='paid')throw new Error('Paid timesheet entries cannot be deleted.'); const {error}=await supabase.from('time_entries').delete().eq('id',id); if(error)throw error; data={mode:'deleted'}; }
+    else if (action === 'add_worker_payment') { const p={worker_id:required(body.worker_id,'Worker'),project_id:clean(body.project_id),business_line_id:clean(body.business_line_id),financial_account_id:clean(body.financial_account_id),payment_date:required(body.payment_date,'Payment date'),amount:Math.abs(money(body.amount)),payment_type:body.payment_type||'labor_payment',reference:clean(body.reference),notes:clean(body.notes)}; if(!p.amount)throw new Error('Payment amount must be greater than zero.'); const {data:d,error}=await supabase.from('worker_payments').insert(p).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'delete_worker_payment') { const {error}=await supabase.from('worker_payments').delete().eq('id',required(body.id,'Worker payment')); if(error)throw error; data={mode:'deleted'}; }
+    else if (action === 'add_mileage') { const p={trip_date:required(body.trip_date,'Trip date'),worker_id:clean(body.worker_id),customer_id:clean(body.customer_id),project_id:clean(body.project_id),business_line_id:required(body.business_line_id,'Business line'),origin:required(body.origin,'Origin'),destination:required(body.destination,'Destination'),miles:money(body.miles),purpose:clean(body.purpose),reimbursement_rate:body.reimbursement_rate===''?null:money(body.reimbursement_rate),reimbursable:!!body.reimbursable}; const {data:d,error}=await supabase.from('mileage_trips').insert(p).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'delete_mileage') { const {error}=await supabase.from('mileage_trips').delete().eq('id',required(body.id,'Mileage trip')); if(error)throw error; data={mode:'deleted'}; }
+    else if (action === 'create_account') data = await createAccount(supabase, body);
+    else if (action === 'delete_account') data = await deleteOrDeactivateAccount(supabase, body.id);
+    else if (action === 'create_category') data = await createCategory(supabase, body);
+    else if (action === 'delete_category') data = await deleteOrDeactivateCategory(supabase, body.id);
+    else if (action === 'create_rule') data = await createRule(supabase, body);
+    else if (action === 'update_rule') { const patch={...body.patch}; if(typeof patch.keywords==='string')patch.keywords=patch.keywords.split(/[\n,]+/).map(v=>v.trim()).filter(Boolean); const {data:d,error}=await supabase.from('transaction_rules').update(patch).eq('id',required(body.id,'Rule')).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'toggle_rule') { const {data:d,error}=await supabase.from('transaction_rules').update({active:!!body.active}).eq('id',required(body.id,'Rule')).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'delete_rule') { const {error}=await supabase.from('transaction_rules').delete().eq('id',required(body.id,'Rule')); if(error)throw error; data={mode:'deleted'}; }
+    else if (action === 'create_vendor') { const {data:d,error}=await supabase.from('vendors').insert({name:required(body.name,'Vendor name'),phone:clean(body.phone),email:clean(body.email),address:clean(body.address)}).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'delete_vendor') data = await deleteOrDeactivateVendor(supabase, body.id);
+    else if (action === 'record_transaction') data = await recordTransaction(supabase, body);
+    else if (action === 'void_transaction') data = await voidFinancialTransaction(supabase, body.id, body.reason || 'Voided by administrator');
+    else if (action === 'review_bank_transaction') data = await reviewBankTransaction(supabase, body);
+    else if (action === 'delete_bank_transaction') data = await deleteBankTransaction(supabase, body.id);
+    else if (action === 'undo_bank_import') data = await undoBankImport(supabase, body.id);
+    else if (action === 'save_invoice') data = await saveInvoice(supabase, body);
+    else if (action === 'void_invoice') { const id=required(body.id,'Invoice'); const paid=await countWhere(supabase,'payments','invoice_id',id); if(paid)throw new Error('This invoice has recorded payments. Reverse the payment before voiding the invoice.'); const {data:d,error}=await supabase.from('invoices').update({status:'void',balance_due:0}).eq('id',id).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'record_invoice_payment') data = await recordInvoicePayment(supabase, body);
+    else throw new Error(`Unknown business action: ${action || '(missing)'}`);
+    return json(200, {ok:true,data});
+  } catch (error) {
+    console.error('[business-action]', error);
+    if (isMissingBusinessSchema(error)) return json(409,{error:'Business modules require the v3.0 Supabase schema. Run EWPROS-BUSINESS-SYSTEM-SCHEMA.sql first.',setupRequired:true});
+    return json(400,{error:error.message||'Business action failed.'});
+  }
+};

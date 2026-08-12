@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>EWPros Administrator Dashboard</title>
+  <link rel="icon" href="../assets/icon.svg">
+  <link rel="stylesheet" href="admin.css?v=3.1.1">
+</head>
+<body>
+  <div id="loginPanel" class="login-screen">
+    <form id="adminLoginForm" class="login-card">
+      <div class="brand-mark">A</div>
+      <p class="eyebrow">EWPros</p>
+      <h1>Administrator Dashboard</h1>
+      <p class="muted">Manage appointments, project data, and workbook preparation.</p>
+      <div id="loginError" class="alert error hidden"></div>
+      <label class="field">
+        <span>Administrator password</span>
+        <input id="adminPassword" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="button primary full" type="submit">Open dashboard</button>
+      <a class="return-link" href="../">Return to auditor app</a>
+    </form>
+  </div>
+
+  <div id="dashboard" class="dashboard hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark small">A</div>
+        <div><strong>EWPros</strong><span>Administrator · v3.1.1</span></div>
+      </div>
+      <nav>
+        <span class="nav-section-label">Business</span>
+        <button class="nav-item active" data-view="business-dashboard">Dashboard</button>
+        <button class="nav-item" data-view="crm">CRM</button>
+        <button class="nav-item" data-view="projects">Projects</button>
+        <button class="nav-item" data-view="banking">Banking</button>
+        <button class="nav-item" data-view="accounting">Accounting</button>
+        <button class="nav-item" data-view="team">Team &amp; Timesheets</button>
+        <button class="nav-item" data-view="mileage">Mileage</button>
+        <button class="nav-item" data-view="reports">Reports</button>
+        <span class="nav-section-label">Audit tools</span>
+        <button class="nav-item" data-view="workspace">Audit Workspace</button>
+        <button class="nav-item" data-view="import">Legacy Asana Import</button>
+        <button class="nav-item" data-view="appointments">Appointments</button>
+        <button class="nav-item" data-view="history">Import History</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <a href="../">Auditor app</a>
+        <button id="adminLogout" class="link-button">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">EWPros administration</p>
+          <h1 id="pageTitle">Business Dashboard</h1>
+        </div>
+        <button id="refreshDashboard" class="button secondary">Refresh</button>
+      </header>
+
+      <div id="globalAlert" class="alert hidden"></div>
+
+      <section id="view-business-dashboard" class="view active">
+        <div id="businessSetupNotice" class="alert hidden"></div>
+        <section class="business-hero">
+          <div><p class="eyebrow">EWPros command center</p><h2>Business Dashboard</h2><p>One consolidated view across StrikeCheck, utility programs, electrical, and renovation.</p></div>
+          <div class="hero-actions"><button class="button primary" type="button" data-open-business-view="accounting">Record transaction</button><button class="button secondary" type="button" data-open-business-view="banking">Import bank statement</button></div>
+        </section>
+        <div id="businessMetricCards" class="metrics business-metrics"></div>
+        <div class="business-grid two-thirds">
+          <section class="panel"><div class="panel-heading"><div><h2>Income by business line</h2><p>Year-to-date income, expense, and net profit.</p></div></div><div id="businessLineSummary" class="table-wrap"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Cash balances</h2><p>Posted ledger balance by cash account.</p></div></div><div id="businessCashBalances"></div></section>
+        </div>
+        <div class="business-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Recent bank transactions</h2><p>Imported transactions and review status.</p></div></div><div id="businessRecentBank" class="table-wrap"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Outstanding invoices</h2><p>Open accounts receivable items.</p></div></div><div id="businessOutstandingInvoices" class="table-wrap"></div></section>
+        </div>
+        <div class="business-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Project profitability</h2><p>Cash revenue minus direct expense and approved labor cost.</p></div></div><div id="businessProjectProfitability" class="table-wrap"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Tasks &amp; reminders</h2><p>Upcoming CRM follow-ups.</p></div></div><div id="businessReminders"></div></section>
+        </div>
+        <section class="panel"><div class="panel-heading"><div><h2>Monthly revenue trend</h2><p>Last twelve months with recorded revenue.</p></div></div><div id="businessRevenueTrend" class="trend-bars"></div></section>
+      </section>
+
+      <section id="view-crm" class="view">
+        <div class="crm-workspace">
+          <header class="crm-toolbar">
+            <div>
+              <p class="crm-kicker">Customer relationship management</p>
+              <h2>Customers</h2>
+            </div>
+            <div class="crm-toolbar-actions">
+              <button id="crmImportOpen" class="button secondary" type="button">Import</button>
+              <button id="crmExportCustomers" class="button secondary" type="button">Export</button>
+              <button id="crmNewCustomerOpen" class="button primary" type="button">+ New customer</button>
+            </div>
+          </header>
+
+          <div class="crm-filterbar">
+            <div class="crm-search-wrap"><span aria-hidden="true">⌕</span><input id="crmSearch" type="search" placeholder="Search customers…" aria-label="Search customers"></div>
+            <select id="crmStageFilter" aria-label="Filter by stage"><option value="all">All stages</option><option value="lead">Leads</option><option value="customer">Customers</option><option value="inactive">Inactive</option></select>
+            <select id="crmLineFilter" aria-label="Filter by business line"><option value="">All business lines</option></select>
+            <span id="crmListCount" class="crm-list-count"></span>
+          </div>
+
+          <section class="crm-list-surface" aria-label="Customer list">
+            <div id="crmCustomerTable" class="crm-customer-list"></div>
+          </section>
+        </div>
+
+        <div id="crmCustomerModal" class="crm-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="crmCustomerModalTitle">
+          <div class="crm-modal-card">
+            <div class="crm-modal-head"><div><p class="crm-kicker">CRM</p><h3 id="crmCustomerModalTitle">New customer</h3></div><button class="crm-icon-button" type="button" data-crm-close="crmCustomerModal" aria-label="Close">×</button></div>
+            <form id="customerForm" class="business-form form-grid">
+              <label>Name / company<input name="display_name" required></label><label>Primary business line<select name="primary_business_line_id" data-business-options="business-lines" required></select></label><label>Stage<select name="customer_type"><option value="lead">Lead</option><option value="customer" selected>Customer</option><option value="inactive">Inactive</option></select></label>
+              <label>Contact name<input name="contact_name"></label><label>Phone<input name="phone" type="tel"></label><label>Email<input name="email" type="email"></label>
+              <label class="span-2">Service address<input name="service_address"></label><label>City<input name="city"></label><label>State<input name="state_code" maxlength="2"></label><label>ZIP<input name="zipcode"></label>
+              <label class="span-all">Notes<textarea name="notes" rows="2"></textarea></label><div class="form-actions span-all crm-modal-actions"><button class="button secondary" type="button" data-crm-close="crmCustomerModal">Cancel</button><button class="button primary" type="submit">Save customer</button></div>
+            </form>
+          </div>
+        </div>
+
+        <div id="crmImportModal" class="crm-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="crmImportModalTitle">
+          <div class="crm-modal-card crm-import-card">
+            <div class="crm-modal-head"><div><p class="crm-kicker">Customer files</p><h3 id="crmImportModalTitle">Import customers</h3></div><button class="crm-icon-button" type="button" data-crm-close="crmImportModal" aria-label="Close">×</button></div>
+            <p class="crm-modal-copy">Upload a CSV, preview matches, then import. EWPros checks email, phone, then name + service address to reduce duplicates.</p>
+            <form id="crmImportForm" class="business-form compact-form">
+              <label>Default business line<select name="default_business_line_id" id="crmImportBusinessLine" data-business-options="business-lines" required></select></label>
+              <label>Default stage<select name="default_customer_type"><option value="customer">Customer</option><option value="lead">Lead</option></select></label>
+              <label class="file-field">Customer CSV<input id="crmCustomerFile" type="file" accept=".csv,text/csv" required></label>
+              <label class="checkline"><input name="update_existing" type="checkbox"> Update matching customers with nonblank imported values</label>
+              <div class="form-actions"><button id="crmPreviewImport" class="button secondary" type="submit">Preview</button><button id="crmConfirmImport" class="button primary" type="button" disabled>Import customers</button></div>
+            </form>
+            <div id="crmImportFileStatus" class="bank-file-status">No customer file selected.</div><div id="crmImportPreview"></div>
+          </div>
+        </div>
+
+        <aside id="crmDetailPanel" class="crm-detail-drawer hidden" aria-label="Customer details"><div id="crmDetail"></div></aside>
+      </section>
+
+      <section id="view-projects" class="view">
+        <details class="panel business-form-panel"><summary>Create project</summary><form id="projectForm" class="business-form form-grid">
+          <label>Project name<input name="name" required></label><label>Project number<input name="project_number"></label><label>Customer<select name="customer_id" data-business-options="customers"><option value="">No customer</option></select></label>
+          <label>Business line<select name="business_line_id" data-business-options="business-lines" required></select></label><label>Status<select name="status"><option value="lead">Lead</option><option value="scheduled">Scheduled</option><option value="active" selected>Active</option><option value="on_hold">On hold</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>
+          <label>Type<input name="project_type" placeholder="Inspection, electrical, renovation…"></label><label>Start date<input type="date" name="start_date"></label><label>Quoted amount<input type="number" step="0.01" name="quoted_amount"></label>
+          <label class="span-2">Service address<input name="service_address"></label><label class="span-all">Description<textarea name="description" rows="2"></textarea></label><div class="form-actions span-all"><button class="button primary" type="submit">Create project</button></div>
+        </form></details>
+        <section class="panel"><div class="panel-heading"><div><h2>Project portfolio</h2><p>Revenue, direct expenses, labor cost, and profit by project.</p></div><input id="projectSearch" class="business-search" type="search" placeholder="Search projects…"></div><div id="projectTable" class="table-wrap"></div></section>
+      </section>
+
+      <section id="view-banking" class="view">
+        <div class="business-grid">
+          <details class="panel business-form-panel" open><summary>Bank / credit-card accounts</summary><form id="bankAccountForm" class="business-form compact-form">
+            <label>Account name<input name="name" required placeholder="EWPros General Checking"></label><label>Institution<input name="institution"></label><label>Type<select name="account_type"><option value="bank">Bank</option><option value="credit_card">Credit card</option><option value="cash">Cash</option></select></label><label>Last 4<input name="last4" maxlength="4"></label><label>Opening balance<input type="number" step="0.01" name="opening_balance" value="0"></label><label>As of<input type="date" name="opening_balance_date"></label><button class="button primary" type="submit">Add account</button>
+          </form><div id="bankAccountList" class="mini-list"></div></details>
+          <section class="panel"><div class="panel-heading"><div><h2>Weekly bank import</h2><p>CSV, OFX, or QFX. Duplicates are ignored automatically.</p></div></div>
+            <form id="bankImportForm" class="business-form compact-form"><label>Account<select name="financial_account_id" id="bankImportAccount" required></select></label><label>Default business line<select name="default_business_line_id" id="bankImportBusinessLine"><option value="">Let rules / reviewer decide</option></select></label><label class="file-field">Statement<input id="bankStatementFile" type="file" accept=".csv,.ofx,.qfx,text/csv,application/x-ofx" required></label><div class="form-actions"><button id="previewBankImport" class="button secondary" type="submit">Preview statement</button><button id="confirmBankImport" class="button primary" type="button">Import transactions</button></div></form><div id="bankImportFileStatus" class="bank-file-status">No statement selected.</div><div id="bankImportPreview"></div>
+          </section>
+        </div>
+        <section class="panel"><div class="panel-heading"><div><h2>Transaction review queue</h2><p>Rules pre-fill categories. Review each transaction before posting to the books.</p></div><select id="bankReviewFilter"><option value="pending">Pending review</option><option value="all">All imported</option><option value="posted">Posted</option><option value="ignored">Ignored</option></select></div><div id="bankTransactionTable" class="table-wrap"></div></section>
+        <section class="panel"><div class="panel-heading"><div><h2>Transaction rules</h2><p>Case-insensitive keyword rules run automatically after every statement import.</p></div></div>
+          <form id="ruleForm" class="business-form rule-form"><label>Rule name<input name="name" required></label><label>Keywords<input name="keywords" required placeholder="callture, receptionhq"></label><label>Match<select name="match_mode"><option value="any">Any keyword</option><option value="all">All keywords</option></select></label><label>Category<select name="category_id" data-business-options="categories"></select></label><label>Business line<select name="business_line_id" data-business-options="business-lines"><option value="">No default</option></select></label><label>Priority<input name="priority" type="number" value="100"></label><button class="button primary" type="submit">Add rule</button></form><div id="ruleTable" class="table-wrap"></div>
+        </section>
+        <section class="panel"><div class="panel-heading"><div><h2>Bank import audit trail</h2><p>Every confirmed statement file and duplicate count.</p></div></div><div id="bankBatchTable" class="table-wrap"></div></section>
+      </section>
+
+      <section id="view-accounting" class="view">
+        <section class="panel"><div class="panel-heading"><div><h2>Record income or expense</h2><p>Manual entries also create balanced journal entries.</p></div></div><form id="transactionForm" class="business-form form-grid">
+          <label>Date<input type="date" name="transaction_date" required></label><label>Account<select name="financial_account_id" data-business-options="financial-accounts" required></select></label><label>Counter account<select name="counter_financial_account_id" data-business-options="financial-accounts"><option value="">Only for transfers</option></select></label><label>Category<select name="category_id" data-business-options="categories" required></select></label><label>Amount<input type="number" step="0.01" min="0.01" name="amount" required></label>
+          <label>Business line<select name="business_line_id" data-business-options="business-lines"><option value="">Company / unassigned</option></select></label><label>Customer<select name="customer_id" data-business-options="customers"><option value="">None</option></select></label><label>Project<select name="project_id" data-business-options="projects"><option value="">None</option></select></label><label>Vendor<select name="vendor_id" data-business-options="vendors"><option value="">None</option></select></label>
+          <label class="span-all">Description<input name="description" required></label><div class="form-actions span-all"><button class="button primary" type="submit">Post transaction</button></div>
+        </form></section>
+        <section class="panel"><div class="panel-heading"><div><h2>Record invoice payment</h2><p>Updates the invoice balance and records cash-basis revenue automatically.</p></div></div><form id="invoicePaymentForm" class="business-form compact-form"><label>Invoice<select name="invoice_id" id="paymentInvoice" required></select></label><label>Date<input name="payment_date" type="date" required></label><label>Deposit account<select name="financial_account_id" id="paymentAccount" required></select></label><label>Amount<input name="amount" type="number" step="0.01" min="0.01" required></label><label>Method<select name="payment_method"><option value="ACH">ACH</option><option value="Check">Check</option><option value="Credit Card">Credit card</option><option value="Cash">Cash</option><option value="Zelle">Zelle</option><option value="Other">Other</option></select></label><label>Reference<input name="reference"></label><button class="button primary" type="submit">Record payment</button></form></section>
+        <div class="business-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Recent transactions</h2><p>Business and owner-equity activity.</p></div></div><div id="accountingTransactions" class="table-wrap"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Invoices</h2><p>Invoices synchronized from the existing invoice worksheet.</p></div></div><div id="accountingInvoices" class="table-wrap"></div></section>
+        </div>
+        <section class="panel"><div class="panel-heading"><div><h2>Accounting categories</h2><p>Use the standard EWPros categories or add your own income/expense categories. Categories already used in transactions are disabled instead of being removed from history.</p></div></div><form id="categoryForm" class="business-form compact-form"><label>Category name<input name="name" required placeholder="Example: Tool Rental"></label><label>Type<select name="behavior"><option value="expense">Expense</option><option value="income">Income</option></select></label><button class="button primary" type="submit">Add category</button></form><div id="categoryTable" class="table-wrap"></div></section>
+        <details class="panel business-form-panel" open><summary>Vendors</summary><form id="vendorForm" class="business-form compact-form"><label>Vendor name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label><label>Address<input name="address"></label><button class="button primary" type="submit">Add vendor</button></form><div id="vendorTable" class="table-wrap" style="margin-top:14px"></div></details>
+      </section>
+
+      <section id="view-team" class="view">
+        <div class="business-grid">
+          <details class="panel business-form-panel" open><summary>Add employee / contractor</summary><form id="workerForm" class="business-form compact-form"><label>Classification<select name="worker_type"><option value="W2">W-2 employee</option><option value="1099">1099 contractor</option></select></label><label>First name<input name="first_name" required></label><label>Last name<input name="last_name" required></label><label>Email<input name="email" type="email"></label><label>Timesheet PIN<input name="timesheet_pin" inputmode="numeric" pattern="[0-9]{4,10}" placeholder="4–10 digits"></label><label>Pay type<select name="pay_type"><option value="hourly">Hourly</option><option value="salary">Salary</option><option value="per_job">Per job</option></select></label><label>Pay rate<input name="pay_rate" type="number" step="0.01"></label><label>OT rate<input name="overtime_rate" type="number" step="0.01"></label><button class="button primary" type="submit">Add worker</button></form></details>
+          <section class="panel"><div class="panel-heading"><div><h2>Team</h2><p>Payroll-ready worker profiles.</p></div></div><div id="workerTable" class="table-wrap"></div></section>
+        </div>
+        <section class="panel"><div class="panel-heading"><div><h2>Timesheet entry</h2><p>Hours are assigned to projects and included in project costing. Workers can also submit their own hours from the separate portal.</p></div><a class="button secondary" href="/time/" target="_blank" rel="noopener">Open worker portal</a></div><form id="timeEntryForm" class="business-form compact-form"><label>Date<input name="work_date" type="date" required></label><label>Worker<select name="worker_id" id="timeWorker" required></select></label><label>Project<select name="project_id" id="timeProject"><option value="">No project</option></select></label><label>Business line<select name="business_line_id" id="timeBusinessLine" required></select></label><label>Regular hours<input name="regular_hours" type="number" step="0.25" min="0"></label><label>Overtime<input name="overtime_hours" type="number" step="0.25" min="0"></label><label>Notes<input name="notes"></label><button class="button primary" type="submit">Submit time</button></form><div id="timeEntryTable" class="table-wrap"></div></section>
+        <section class="panel"><div class="panel-heading"><div><h2>Worker payments</h2><p>Track payments made to W-2 employees and 1099 contractors without duplicating timesheet labor cost.</p></div></div><form id="workerPaymentForm" class="business-form compact-form"><label>Date<input name="payment_date" type="date" required></label><label>Worker<select name="worker_id" id="workerPaymentWorker" required></select></label><label>Project<select name="project_id" id="workerPaymentProject"><option value="">No project</option></select></label><label>Business line<select name="business_line_id" id="workerPaymentLine"><option value="">Company / unassigned</option></select></label><label>Paid from<select name="financial_account_id" id="workerPaymentAccount"><option value="">Not specified</option></select></label><label>Amount<input name="amount" type="number" step="0.01" min="0.01" required></label><label>Type<select name="payment_type"><option value="labor_payment">Labor payment</option><option value="advance">Advance</option><option value="reimbursement">Reimbursement</option><option value="other">Other</option></select></label><label>Reference<input name="reference"></label><button class="button primary" type="submit">Record payment</button></form><div id="workerPaymentTable" class="table-wrap"></div></section>
+      </section>
+
+      <section id="view-mileage" class="view">
+        <section class="panel"><div class="panel-heading"><div><h2>Record business mileage</h2><p>Link travel to a business line, customer, and project.</p></div></div><form id="mileageForm" class="business-form form-grid"><label>Date<input name="trip_date" type="date" required></label><label>Worker<select name="worker_id" data-business-options="workers"><option value="">Owner / unassigned</option></select></label><label>Business line<select name="business_line_id" data-business-options="business-lines" required></select></label><label>Customer<select name="customer_id" data-business-options="customers"><option value="">None</option></select></label><label>Project<select name="project_id" data-business-options="projects"><option value="">None</option></select></label><label>Miles<input name="miles" type="number" step="0.1" min="0" required></label><label>Origin<input name="origin" required></label><label>Destination<input name="destination" required></label><label class="span-2">Purpose<input name="purpose"></label><label>Reimbursement rate<input name="reimbursement_rate" type="number" step="0.001"></label><label class="checkbox-inline"><input name="reimbursable" type="checkbox"> Reimbursable</label><div class="form-actions span-all"><button class="button primary" type="submit">Save trip</button></div></form></section>
+        <section class="panel"><div class="panel-heading"><div><h2>Mileage report</h2><p>Total miles and reimbursement value by trip.</p></div><button id="exportMileageCsv" class="button secondary" type="button">Export CSV</button></div><div id="mileageSummary" class="metrics compact"></div><div id="mileageTable" class="table-wrap"></div></section>
+      </section>
+
+      <section id="view-reports" class="view">
+        <section class="panel report-filter-panel"><form id="reportFilterForm" class="business-form compact-form"><label>From<input id="reportStart" name="start" type="date" required></label><label>Through<input id="reportEnd" name="end" type="date" required></label><label>Business line<select id="reportBusinessLine" name="business_line_id"><option value="">Consolidated company</option></select></label><button class="button primary" type="submit">Run reports</button></form></section>
+        <div id="reportMetrics" class="metrics"></div>
+        <div class="business-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Profit &amp; Loss</h2><p id="pnlPeriod"></p></div></div><div id="pnlTable" class="table-wrap"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Cash Flow</h2><p>Cash movement for the selected period.</p></div></div><div id="cashFlowTable"></div></section>
+        </div>
+        <section class="panel"><div class="panel-heading"><div><h2>Balance Sheet</h2><p>Balances through the report end date.</p></div></div><div id="balanceSheetTable" class="table-wrap"></div></section>
+        <div class="business-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Income by business line</h2><p>Consolidated operating comparison.</p></div></div><div id="reportBusinessLines" class="table-wrap"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Project profitability</h2><p>Revenue vs. direct and labor costs.</p></div></div><div id="reportProjectProfitability" class="table-wrap"></div></section>
+        </div>
+        <div class="business-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Customer profitability</h2><p>Revenue, direct expense, labor cost, and profit by customer.</p></div></div><div id="reportCustomerRevenue" class="table-wrap"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Vendor spending</h2><p>Expense and vendor-payment activity.</p></div></div><div id="reportVendorSpending" class="table-wrap"></div></section>
+        </div>
+        <div class="business-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Expense by category</h2><p>Where operating money was spent.</p></div></div><div id="reportExpenseCategories" class="table-wrap"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Revenue by income stream</h2><p>Revenue categories for the selected period.</p></div></div><div id="reportIncomeStreams" class="table-wrap"></div></section>
+        </div>
+        <div class="business-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Monthly comparison</h2><p>Revenue, expenses, and net result by month.</p></div></div><div id="reportMonthly" class="table-wrap"></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Yearly comparison</h2><p>Revenue, expenses, and net result by year.</p></div></div><div id="reportYearly" class="table-wrap"></div></section>
+        </div>
+      </section>
+
+      <section id="view-workspace" class="view">
+        <div class="workbook-tabs" role="tablist" aria-label="Admin workbook tabs">
+          <button class="workbook-tab active" data-workspace-tab="main" type="button">Main</button>
+          <button class="workbook-tab" data-workspace-tab="pdata" type="button">PData</button>
+          <button class="workbook-tab" data-workspace-tab="pepco-workbook" type="button">For_PEPCO_Wrkbk</button>
+          <button class="workbook-tab" data-workspace-tab="pepco-online" type="button">For_PEPCO_Online</button>
+          <button class="workbook-tab" data-workspace-tab="invoice" type="button">Invoice</button>
+        </div>
+
+        <div id="workspace-main" class="workspace-view active">
+          <section class="workspace-hero">
+            <div>
+              <p class="eyebrow">Project control center</p>
+              <h2>Audit and incentive workflow</h2>
+              <p>Review appointment activity, maintain proposed-device data, and prepare project information for utility workbooks.</p>
+            </div>
+            <div class="hero-actions">
+              <button class="button primary" type="button" data-open-admin-view="import">Import Asana CSV</button>
+              <a class="button secondary button-link" href="../">Open Auditor App</a>
+            </div>
+          </section>
+          <div id="metricCards" class="metrics"></div>
+          <section class="panel project-archive-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Complete Project Archive</h2>
+                <p>Download one project file containing the Admin tabs, invoice, imported appointment snapshot, signed audit data, photos, and signatures. Upload it later to restore everything to the correct sections.</p>
+              </div>
+              <span class="status-chip">EWPros archive</span>
+            </div>
+            <div class="archive-actions">
+              <button id="downloadProjectArchive" class="button primary" type="button">Download all project data</button>
+              <label class="button secondary archive-upload">Upload project archive<input id="uploadProjectArchive" type="file" accept=".json,application/json" hidden></label>
+            </div>
+            <p class="archive-note">The archive is a single JSON file. Projects containing many photos may produce a larger file because the photos and customer signature are included.</p>
+          </section>
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-heading"><div><h2>Upcoming appointments</h2><p>Next scheduled appointments from Supabase</p></div></div>
+              <div id="upcomingList" class="table-wrap"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading"><div><h2>Recent imports</h2><p>Most recent CSV activity</p></div></div>
+              <div id="recentImports"></div>
+            </section>
+          </div>
+        </div>
+
+        <div id="workspace-pdata" class="workspace-view">
+          <section class="panel pdata-panel">
+            <div class="panel-heading pdata-heading">
+              <div>
+                <h2>Proposed Device Data</h2>
+                <p>Edit the proposed-measure catalog used by the audit lighting line items.</p>
+              </div>
+              <span id="pdataStatus" class="status-chip">47 default rows</span>
+            </div>
+            <div class="notice">
+              Changes are saved in this browser. The built-in project defaults remain available through <strong>Reset defaults</strong>.
+            </div>
+            <div class="pdata-toolbar">
+              <input id="pdataSearch" type="search" placeholder="Search measure, manufacturer, model, or code…">
+              <button id="addPDataRow" class="button secondary" type="button">+ Add row</button>
+              <button id="savePData" class="button primary" type="button">Save changes</button>
+              <button id="exportPData" class="button secondary" type="button">Export CSV</button>
+              <button id="resetPData" class="button danger-outline" type="button">Reset defaults</button>
+            </div>
+            <div id="pdataTable" class="table-wrap pdata-table-wrap"></div>
+          </section>
+
+          <section class="panel pdata-panel control-pdata-panel">
+            <div class="panel-heading pdata-heading">
+              <div>
+                <h2>Control Data</h2>
+                <p>Independent control-measure mapping used for PEPCO workbook preparation.</p>
+              </div>
+              <span id="controlPdataStatus" class="status-chip">4 default rows</span>
+            </div>
+            <div class="notice">
+              This table is independent of Proposed Device Data. Saving or resetting one table does not change the other.
+            </div>
+            <div class="pdata-toolbar">
+              <input id="controlPdataSearch" type="search" placeholder="Search control type, measure, mounting, or code…">
+              <button id="addControlPDataRow" class="button secondary" type="button">+ Add row</button>
+              <button id="saveControlPData" class="button primary" type="button">Save changes</button>
+              <button id="exportControlPData" class="button secondary" type="button">Export CSV</button>
+              <button id="resetControlPData" class="button danger-outline" type="button">Reset defaults</button>
+            </div>
+            <div id="controlPdataTable" class="table-wrap pdata-table-wrap"></div>
+          </section>
+        </div>
+
+        <div id="workspace-pepco-workbook" class="workspace-view">
+          <section class="panel pepco-workbook-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>PEPCO Workbook Preparation</h2>
+                <p>The upper project/model area and lower lighting inventory are saved independently.</p>
+              </div>
+              <span class="status-chip">Workbook layout</span>
+            </div>
+
+            <div class="project-source-toolbar">
+              <label>Imported project
+                <select id="pepcoProjectSource"><option value="">Select an imported appointment…</option></select>
+              </label>
+              <button id="loadPepcoProjectData" class="button secondary" type="button">Load CSV project data</button>
+              <button id="loadPepcoAuditData" class="button primary" type="button">Load auditor lighting data</button>
+              <span id="pepcoProjectLoadStatus" class="status-chip">Select a project</span>
+            </div>
+
+            <div class="pepco-sheet-section pepco-top-section">
+              <div class="sheet-section-heading">
+                <div><strong>A — Project and model information</strong><span>Independent upper section</span></div>
+                <div class="sheet-actions">
+                  <button id="savePepcoTop" class="button primary" type="button">Save upper section</button>
+                  <button id="resetPepcoTop" class="button danger-outline" type="button">Reset</button>
+                </div>
+              </div>
+
+              <div class="pepco-info-grid">
+                <div class="sheet-box">
+                  <h3>General Project Information (Required)</h3>
+                  <label>Project Name<input data-pepco-top-field="projectName"></label>
+                  <label>Project Address<input data-pepco-top-field="projectAddress"></label>
+                  <label>City<input data-pepco-top-field="city"></label>
+                  <label>ZIP<input data-pepco-top-field="zip"></label>
+                </div>
+                <div class="sheet-box compact-box">
+                  <h3>Building Information (Required)</h3>
+                  <label>Building Type<input data-pepco-top-field="buildingType"></label>
+                  <label>Heating Fuel Type<input data-pepco-top-field="heatingFuelType"></label>
+                </div>
+                <div class="sheet-box">
+                  <h3>Workbook Submitter Information</h3>
+                  <label>Company Name<input data-pepco-top-field="companyName"></label>
+                  <label>Contact Person<input data-pepco-top-field="contactPerson"></label>
+                  <label>Phone<input data-pepco-top-field="phone"></label>
+                  <label>Email<input data-pepco-top-field="email"></label>
+                </div>
+                <div class="sheet-box compact-box">
+                  <h3>Incentivized Tabs</h3>
+                  <label class="sheet-choice"><input type="checkbox" data-pepco-top-field="lightingInventory"> Lighting Inventory</label>
+                  <label class="sheet-choice"><input type="checkbox" data-pepco-top-field="lightingControlsOnly"> Lighting Controls Only</label>
+                  <label class="sheet-choice"><input type="checkbox" data-pepco-top-field="signLighting"> Sign Lighting</label>
+                </div>
+              </div>
+
+              <div class="sheet-table-wrap">
+                <table class="sheet-table model-table">
+                  <thead><tr><th>Model ID</th><th>DLC/Energy Star ID</th><th>Model Number</th><th>Reported Lumens</th><th>Reported Wattage</th><th>Reported Efficacy</th><th>Proposed LED Device</th><th>Actions</th></tr></thead>
+                  <tbody id="pepcoModelTable"></tbody>
+                </table>
+              </div>
+              <button id="addPepcoModelRow" class="button secondary" type="button">+ Add model row</button>
+            </div>
+
+            <div class="pepco-sheet-section pepco-inventory-section">
+              <div class="sheet-section-heading">
+                <div><strong>Lighting Inventory</strong><span>Independent lower section</span></div>
+                <div class="sheet-actions">
+                  <button id="savePepcoInventory" class="button primary" type="button">Save inventory</button>
+                  <button id="resetPepcoInventory" class="button danger-outline" type="button">Reset</button>
+                </div>
+              </div>
+              <div id="pepcoInventoryTable" class="sheet-table-wrap pepco-inventory-wrap"></div>
+              <button id="addPepcoInventoryRow" class="button secondary" type="button">+ Add inventory row</button>
+            </div>
+          </section>
+        </div>
+        <div id="workspace-pepco-online" class="workspace-view">
+          <section class="panel pepco-online-panel">
+            <div class="panel-heading pdata-heading">
+              <div>
+                <h2>PEPCO Online Portal Entry Worksheet</h2>
+                <p>Use this editable checklist while entering a project in the utility application portal.</p>
+              </div>
+              <span id="pepcoOnlineStatus" class="status-chip">40 default rows</span>
+            </div>
+
+            <div class="portal-links" aria-label="Utility online portal links">
+              <span>Click here for the online portal:</span>
+              <a class="button primary button-link" href="https://homeenergysavings.pepco.com/business/apply" target="_blank" rel="noopener noreferrer">PEPCO</a>
+              <a class="button secondary button-link" href="https://bgeiconline.customerapplication.com" target="_blank" rel="noopener noreferrer">BGE</a>
+            </div>
+
+            <div class="notice">
+              The expected completion date defaults to two months from today, and the application date defaults to today. Changes are saved in this browser and remain independent of the PEPCO workbook tab.
+            </div>
+
+            <div class="project-source-toolbar pepco-online-source-toolbar">
+              <label>Imported project
+                <select id="pepcoOnlineProjectSource"><option value="">Select an imported appointment…</option></select>
+              </label>
+              <button id="loadPepcoOnlineProjectData" class="button primary" type="button">Fill from imported CSV</button>
+              <span id="pepcoOnlineProjectStatus" class="status-chip">Select a project</span>
+            </div>
+
+            <div class="pdata-toolbar pepco-online-toolbar">
+              <input id="pepcoOnlineSearch" type="search" placeholder="Search section, portal field, or value…">
+              <button id="addPepcoOnlineRow" class="button secondary" type="button">+ Add row</button>
+              <button id="savePepcoOnline" class="button primary" type="button">Save worksheet</button>
+              <button id="exportPepcoOnline" class="button secondary" type="button">Export CSV</button>
+              <button id="resetPepcoOnline" class="button danger-outline" type="button">Reset defaults</button>
+            </div>
+            <div id="pepcoOnlineTable" class="table-wrap pepco-online-table-wrap"></div>
+          </section>
+        </div>
+
+        <div id="workspace-invoice" class="workspace-view">
+          <section class="panel invoice-workspace">
+            <div class="panel-heading">
+              <div>
+                <h2>Invoice</h2>
+                <p>Prepare an editable customer invoice and use the signature captured in Customer T&amp;C.</p>
+              </div>
+              <div class="sheet-actions">
+                <button id="saveInvoice" class="button primary" type="button">Save invoice</button>
+                <button id="syncInvoiceBusiness" class="button secondary" type="button">Sync to CRM / Accounting</button>
+                <button id="printInvoice" class="button secondary" type="button">Print / Save PDF</button>
+              </div>
+            </div>
+            <div class="notice invoice-source-notice">
+              Customer signatures are loaded from signed audits stored in this browser. For signatures completed on a different iPad, central audit synchronization will be needed.
+            </div>
+            <div class="invoice-source-toolbar">
+              <select id="invoiceProjectSource"><option value="">Select an imported appointment…</option></select>
+              <button id="loadInvoiceWorkbook" class="button primary" type="button">Load from PEPCO Workbook</button>
+              <select id="invoiceAuditSource"><option value="">Select a locally signed audit…</option></select>
+              <button id="loadInvoiceAudit" class="button secondary" type="button">Load signed audit</button>
+              <label class="button secondary signature-upload">Upload customer signature<input id="invoiceSignatureUpload" type="file" accept="image/*" hidden></label>
+            </div>
+
+            <div id="invoiceDocument" class="invoice-document">
+              <div class="invoice-title">Invoice</div>
+              <div class="invoice-header">
+                <div class="invoice-brand"><img class="invoice-logo-image" src="../assets/ewpros-logo.jpg" alt="EWPros logo"><div><strong>EWPros</strong><span>Energy • Work • Professionals</span><span class="invoice-utility">Program: <b id="invoiceUtilityProgram">PEPCO</b></span></div></div>
+                <div class="invoice-meta">
+                  <label>Completion Date<input data-invoice-field="completionDate" type="date"></label>
+                  <label>Invoice Date<input data-invoice-field="invoiceDate" type="date"></label>
+                  <label>Invoice Number<input data-invoice-field="invoiceNumber"></label>
+                </div>
+              </div>
+
+              <div class="invoice-parties">
+                <div class="invoice-company">
+                  <strong>EWPros, LLC</strong>
+                  <span>400 East Pratt Street</span>
+                  <span>Baltimore, MD 21202</span>
+                  <span>Tel: 1-800-731-6750</span>
+                  <span>Support@EWPros.com</span>
+                </div>
+                <div class="invoice-to">
+                  <h3>INVOICE TO:</h3>
+                  <input data-invoice-field="invoiceToName" placeholder="Customer / company">
+                  <input data-invoice-field="invoiceToAddress" placeholder="Street address">
+                  <input data-invoice-field="invoiceToCityStateZip" placeholder="City, State ZIP">
+                  <input data-invoice-field="invoiceToPhone" placeholder="Phone">
+                  <input data-invoice-field="invoiceToEmail" placeholder="Email">
+                </div>
+              </div>
+
+              <div id="invoiceLinesTable" class="invoice-lines-wrap"></div>
+              <button id="addInvoiceLine" class="button secondary invoice-add-row" type="button">+ Add invoice line</button>
+
+              <p class="invoice-inclusions">Inclusions: Costs for material delivery and service provider transportation to and from the job site. Costs to prepare the worksite for installation, including costs to protect existing finishes, materials and components. Costs for site cleanup and debris removal once work is completed. Costs for tools or machinery used to complete the installation. Costs for purchase, delivery, and storage of the lighting fixtures. General contractor fees for directing and managing the lighting installation.</p>
+
+              <div class="invoice-summary">
+                <div class="invoice-notes-area"><textarea data-invoice-field="notes" placeholder="Invoice notes"></textarea></div>
+                <div class="invoice-totals">
+                  <label>Total Project Cost<input data-invoice-field="projectCost" type="number" step="0.01"></label>
+                  <label>Incentive Amount<input data-invoice-field="incentiveAmount" type="number" step="0.01"></label>
+                  <label>Material Cost<input data-invoice-field="materialCost" type="number" step="0.01"></label>
+                  <label>Installation Cost<input data-invoice-field="installationCost" type="number" step="0.01"></label>
+                  <label class="balance">Balance Due<input data-invoice-field="balanceDue" type="number" step="0.01"></label>
+                </div>
+              </div>
+
+              <div class="payment-line"><strong>PAYMENT INFORMATION</strong><span>Please make check payments payable to EWPros, LLC</span></div>
+              <div class="invoice-signatures">
+                <div class="signature-block authorized-signature-block">
+                  <div class="signature-placeholder authorized-signature">
+                    <img src="../assets/authorized-personnel-signature.jpg" alt="Authorized personnel signature">
+                  </div>
+                  <input class="authorized-personnel-name" data-invoice-field="authorizedPersonnel" placeholder="Authorized personnel name">
+                  <span>Authorized Personnel</span>
+                </div>
+                <div class="signature-block customer-signature-block">
+                  <div id="invoiceCustomerSignature" class="signature-placeholder signature-image-placeholder">No customer signature loaded</div>
+                  <span id="invoiceCustomerSignatureLabel">Representative/Owner (Customer)</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-import" class="view">
+        <div class="panel import-panel">
+          <div class="panel-heading">
+            <div><h2>Upload Asana CSV</h2><p>Designed for your “On-Going Projects (Customers)” export.</p></div>
+            <span class="status-chip">Task ID matching</span>
+          </div>
+          <div class="notice">
+            The importer reads <strong>Task ID</strong>, <strong>Name</strong>, <strong>Due Date</strong>, <strong>Assignee</strong>, and the structured <strong>Notes</strong> field. Audit work already saved on an auditor’s device is not replaced.
+          </div>
+          <label class="drop-zone" id="dropZone">
+            <input id="csvFile" type="file" accept=".csv,text/csv" hidden>
+            <span class="drop-icon">⇧</span>
+            <strong id="fileLabel">Choose Asana CSV</strong>
+            <span>or drag and drop the file here</span>
+          </label>
+          <label class="checkbox-row">
+            <input id="fullSnapshot" type="checkbox">
+            <span><strong>This is a complete project export</strong><small>Appointments missing from the file will be archived. Leave unchecked for normal updates and testing.</small></span>
+          </label>
+          <div class="actions">
+            <button id="previewBtn" class="button secondary" disabled>Preview changes</button>
+            <button id="importBtn" class="button primary" disabled>Confirm import</button>
+          </div>
+        </div>
+        <section id="previewPanel" class="panel hidden">
+          <div class="panel-heading"><div><h2>Import preview</h2><p id="formatDetected"></p></div></div>
+          <div id="previewMetrics" class="metrics compact"></div>
+          <div id="previewErrors"></div>
+          <div id="previewChanges" class="table-wrap"></div>
+        </section>
+      </section>
+
+      <section id="view-appointments" class="view">
+        <div class="panel">
+          <div class="panel-heading appointments-heading">
+            <div><h2>All appointments</h2><p>Appointments created from CRM or imported from legacy Asana files</p></div>
+            <div class="filters">
+              <input id="appointmentSearch" type="search" placeholder="Search customer, address, Task ID…">
+              <select id="appointmentStatusFilter">
+                <option value="all">All statuses</option>
+                <option value="active">Active only</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+          </div>
+          <div id="appointmentsTable" class="table-wrap"></div>
+        </div>
+      </section>
+
+      <section id="view-history" class="view">
+        <div class="panel">
+          <div class="panel-heading"><div><h2>Import history</h2><p>Every confirmed CSV import is recorded in Supabase.</p></div></div>
+          <div id="historyTable" class="table-wrap"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="../p-data.js"></script>
+  <script src="../control-data.js"></script>
+  <script src="../pepco-online-data.js"></script>
+  <script src="../space-types.js"></script>
+  <script src="admin.js?v=3.0.4"></script>
+  <script src="business.js?v=3.1.1"></script>
+</body>
+</html>
