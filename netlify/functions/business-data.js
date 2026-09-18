@@ -80,7 +80,17 @@ async function dashboard(supabase, lookups) {
 }
 
 async function customersView(supabase, lookups, customerId) {
-  if (!customerId) return { customers: lookups.customers };
+  if (!customerId) {
+    const reminders = await fetchAll(supabase, 'reminders', 'id,customer_id,title,due_at,status', q => q.eq('status', 'open').order('due_at', { ascending: true, nullsFirst: false }));
+    const nextByCustomer = new Map();
+    for (const reminder of reminders) {
+      if (reminder.customer_id && !nextByCustomer.has(reminder.customer_id)) nextByCustomer.set(reminder.customer_id, reminder);
+    }
+    return { customers: lookups.customers.map(customer => {
+      const next = nextByCustomer.get(customer.id);
+      return { ...customer, next_action: next?.title || '', due_date: next?.due_at || null };
+    }) };
+  }
   const customer = lookups.customers.find(c => c.id === customerId);
   if (!customer) throw new Error('Customer not found.');
   const appointmentSelect = 'id,source_system,external_task_id,appointment_number,customer_id,project_id,business_line_id,assigned_worker_id,appointment_type,appointment_notes,customer_name,customer_phone,customer_email,service_address,scheduled_start,scheduled_end,timezone,appointment_status,source_active,auditor_visible,crm_created,source_payload,created_at,updated_at';
@@ -113,16 +123,21 @@ async function customerExportView(supabase) {
 }
 
 async function projectsView(supabase, lookups) {
-  const profitability = await fetchAll(supabase, 'v_project_profitability', '*', q => q.order('project_name'));
+  const [profitability, archivedProjects] = await Promise.all([
+    fetchAll(supabase, 'v_project_profitability', '*', q => q.order('project_name')),
+    fetchAll(supabase, 'projects', 'id,customer_id,business_line_id,project_number,name,project_type,status,start_date,end_date,service_address,quoted_amount,external_key,legacy_appointment_id,updated_at', q => q.eq('status', 'archived').order('end_date', { ascending: false, nullsFirst: false }))
+  ]);
   const profitabilityMap = new Map(profitability.map(p => [p.project_id, p]));
   const customerMap = new Map(lookups.customers.map(c => [c.id, c.display_name]));
   const lineMap = new Map(lookups.businessLines.map(l => [l.id, l.name]));
+  const enrich = project => {
+    const p = profitabilityMap.get(project.id) || {};
+    const revenue = money(p.cash_revenue), directExpense = money(p.direct_expense), laborCost = money(p.labor_cost);
+    return { ...project, customer: customerMap.get(project.customer_id) || '', businessLine: lineMap.get(project.business_line_id) || '', revenue, directExpense, laborCost, totalCost: directExpense + laborCost, profit: revenue - directExpense - laborCost };
+  };
   return {
-    projects: lookups.projects.map(project => {
-      const p = profitabilityMap.get(project.id) || {};
-      const revenue = money(p.cash_revenue), directExpense = money(p.direct_expense), laborCost = money(p.labor_cost);
-      return { ...project, customer: customerMap.get(project.customer_id) || '', businessLine: lineMap.get(project.business_line_id) || '', revenue, directExpense, laborCost, totalCost: directExpense + laborCost, profit: revenue - directExpense - laborCost };
-    })
+    projects: lookups.projects.map(enrich),
+    archivedProjects: archivedProjects.map(enrich)
   };
 }
 

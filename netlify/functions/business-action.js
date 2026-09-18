@@ -617,6 +617,8 @@ exports.handler = async event => {
     else if (action === 'create_appointment') data = await createAppointment(supabase, body);
     else if (action === 'cancel_appointment') data = await cancelAppointment(supabase, body.id);
     else if (action === 'update_project') { const {data:d,error}=await supabase.from('projects').update(body.patch || {}).eq('id',required(body.id,'Project')).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'archive_project') { const {data:d,error}=await supabase.from('projects').update({status:'archived'}).eq('id',required(body.id,'Project')).select('*').single(); if(error)throw error; data={mode:'archived',record:d}; }
+    else if (action === 'restore_project') { const {data:d,error}=await supabase.from('projects').update({status:'completed'}).eq('id',required(body.id,'Project')).select('*').single(); if(error)throw error; data={mode:'restored',record:d}; }
     else if (action === 'delete_project') data = await deleteOrArchiveProject(supabase, body.id);
     else if (action === 'create_worker') data = await createWorker(supabase, body);
     else if (action === 'delete_worker') data = await deleteOrDeactivateWorker(supabase, body.id);
