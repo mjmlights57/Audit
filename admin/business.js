@@ -84,7 +84,7 @@
   async function confirmedAction(message,payload,onDone,options={}){
     const ok=await askConfirmation({title:options.title||'Confirm deletion',message,confirmLabel:options.confirmLabel||'Delete',danger:options.danger!==false});
     if(!ok)return;
-    try{const result=await action(payload);toast(result?.data?.mode==='archived'?'Archived':result?.data?.mode==='deactivated'?'Deactivated':result?.data?.mode==='voided'?'Voided':'Deleted');if(onDone)await onDone(result);}catch(err){alert(err.message);}
+    try{const result=await action(payload);const mode=result?.data?.mode;toast(options.successMessage||(mode==='archived'?'Archived':mode==='restored'?'Restored':mode==='deactivated'?'Deactivated':mode==='voided'?'Voided':'Deleted'));if(onDone)await onDone(result);}catch(err){alert(err.message);}
   }
 
   async function loadDashboard(){
@@ -108,16 +108,17 @@
     const line=$('#crmLineFilter')?.value||'';
     const allRows=state.customers?.customers||[];
     const rows=allRows.filter(c=>{
-      const search=!q||[c.display_name,c.company_name,c.contact_name,c.phone,c.email,c.service_address,c.city,c.state_code,c.zipcode].join(' ').toLowerCase().includes(q);
+      const search=!q||[c.display_name,c.company_name,c.contact_name,c.phone,c.email,c.notes,c.next_action,c.service_address,c.city,c.state_code,c.zipcode].join(' ').toLowerCase().includes(q);
       return search&&(stage==='all'||c.customer_type===stage)&&(!line||c.primary_business_line_id===line);
     });
     const lineMap=mapBy(state.lookups?.businessLines||[]);
     const count=$('#crmListCount'); if(count)count.textContent=`${rows.length} of ${allRows.length}`;
-    $('#crmCustomerTable').innerHTML=table(['Customer','Stage','Business line','Contact','Address',''],rows.map(c=>{
+    $('#crmCustomerTable').innerHTML=table(['Customer','Stage','Next Action','Due Date','Business line','Contact','Notes',''],rows.map(c=>{
       const initial=esc((c.display_name||'?').trim().slice(0,1).toUpperCase());
       const contactPrimary=c.contact_name||c.phone||c.email||'—';
       const contactSecondary=c.contact_name?(c.phone||c.email||''):c.phone?(c.email||''):'';
-      return `<tr class="customer-row" data-customer-id="${c.id}"><td><div class="crm-name-cell"><span class="crm-avatar">${initial}</span><span class="crm-name-text"><strong>${esc(c.display_name)}</strong>${c.company_name&&c.company_name!==c.display_name?`<span class="muted-cell">${esc(c.company_name)}</span>`:''}</span></div></td><td>${status(c.customer_type)}</td><td>${esc(lineMap.get(c.primary_business_line_id)?.name||'—')}</td><td><div class="crm-contact-line">${esc(contactPrimary)}${contactSecondary?`<div class="muted-cell">${esc(contactSecondary)}</div>`:''}</div></td><td>${esc(c.service_address||'—')}</td><td class="crm-chevron">›</td></tr>`;
+      const notes=(c.notes||'').trim();
+      return `<tr class="customer-row" data-customer-id="${c.id}"><td><div class="crm-name-cell"><span class="crm-avatar">${initial}</span><span class="crm-name-text"><strong>${esc(c.display_name)}</strong>${c.company_name&&c.company_name!==c.display_name?`<span class="muted-cell">${esc(c.company_name)}</span>`:''}</span></div></td><td>${status(c.customer_type)}</td><td>${esc(c.next_action||'—')}</td><td>${c.due_date?fmtDate(c.due_date):'—'}</td><td>${esc(lineMap.get(c.primary_business_line_id)?.name||'—')}</td><td><div class="crm-contact-line">${esc(contactPrimary)}${contactSecondary?`<div class="muted-cell">${esc(contactSecondary)}</div>`:''}</div></td><td><div class="crm-notes-cell" title="${esc(notes)}">${esc(notes||'—')}</div></td><td class="crm-chevron">›</td></tr>`;
     }),'No customers match this view.');
     $$('.customer-row').forEach(row=>row.addEventListener('click',()=>openCustomer(row.dataset.customerId)));
   }
@@ -129,7 +130,10 @@
     const cost=transactions.filter(t=>['expense','vendor_payment'].includes(t.transaction_type)&&!t.personal).reduce((a,t)=>a+num(t.amount),0);
     const outstanding=invoices.reduce((a,i)=>a+num(i.balance_due),0);
     const lines=state.lookups?.businessLines||[], workers=state.lookups?.workers||[];
-    const customerProjects=data.projects||[];
+    const customerProjects=(data.projects||[]).slice().sort((a,b)=>{
+      const ad=a.end_date||'9999-12-31', bd=b.end_date||'9999-12-31';
+      return ad.localeCompare(bd)||String(a.name||'').localeCompare(String(b.name||''));
+    });
     const lineMap=mapBy(lines);
     const lineOptions=lines.map(l=>option(l.id,l.name,c.primary_business_line_id)).join('');
     const projectOptions=customerProjects.map(p=>option(p.id,p.name,'')).join('');
@@ -138,7 +142,7 @@
     const upcoming=appointments.filter(a=>a.appointment_status!=='cancelled'&&a.source_active&&String(a.scheduledDate||'')>=today).sort((a,b)=>String(a.scheduledDate||'').localeCompare(String(b.scheduledDate||'')))[0];
     const openReminders=reminders.filter(r=>r.status==='open');
     const appointmentRows=appointments.map(a=>`<tr><td>${fmtDate(a.scheduledDate)}</td><td><strong>${esc(a.appointment_type||a.source_payload?.appointment_type||'Appointment')}</strong><div class="muted-cell">${esc(a.scheduledTime||'Time not set')}${a.endTime?` – ${esc(a.endTime)}`:''}</div></td><td>${esc(a.assignedWorker||'Unassigned')}</td><td>${status(a.crmStatus||a.appointment_status)}</td><td><span class="crm-source-pill">${esc(a.source_system==='crm'?'CRM':'Legacy')}</span></td><td>${a.appointment_status!=='cancelled'&&a.source_active?`<button class="button micro warn" data-cancel-appointment="${a.id}">Cancel</button>`:'—'}</td></tr>`);
-    const projectRows=customerProjects.map(p=>`<div class="crm-mini-item"><strong>${esc(p.name)}</strong><div class="muted-cell">${esc(p.businessLine||'')} · ${esc(p.status)}${p.project_number?` · ${esc(p.project_number)}`:''}</div></div>`).join('');
+    const projectRows=customerProjects.map(p=>`<div class="crm-mini-item"><strong>${esc(p.name)}</strong><div class="muted-cell">${esc(p.businessLine||'')} · ${esc(p.status)}${p.end_date?` · due ${fmtDate(p.end_date)}`:''}${p.project_number?` · ${esc(p.project_number)}`:''}</div></div>`).join('');
     const invoiceRows=invoices.slice(0,6).map(i=>`<div class="crm-mini-item"><strong>${esc(i.invoice_number)}</strong> <span class="muted-cell">${fmtDate(i.invoice_date)}</span><div class="muted-cell">${money(i.total)} · ${esc(i.status)} · balance ${money(i.balance_due)}</div></div>`).join('');
     const reminderRows=openReminders.slice(0,5).map(r=>`<div class="crm-mini-item"><strong>${esc(r.title)}</strong><div class="muted-cell">${r.due_at?new Date(r.due_at).toLocaleString():'No due date'}</div><div class="inline-actions" style="margin-top:6px"><button class="button micro secondary" data-complete-reminder="${r.id}">Complete</button><button class="button micro warn" data-delete-reminder="${r.id}">Delete</button></div></div>`).join('');
     const noteRows=notes.slice(0,8).map(n=>`<div class="crm-mini-item">${esc(n.note)}<div class="muted-cell">${new Date(n.created_at).toLocaleString()}</div><button class="button micro warn" style="margin-top:6px" data-delete-note="${n.id}">Delete</button></div>`).join('');
@@ -182,7 +186,7 @@
       </div>
 
       <div class="crm-tab-panel hidden" data-crm-panel="projects">
-        <div id="crmProjectComposer" class="crm-composer hidden"><div class="crm-composer-title"><h3>New project</h3><button class="crm-icon-button" type="button" data-crm-hide-composer="crmProjectComposer">×</button></div><form id="customerProjectQuick" class="business-form compact-form"><input name="name" placeholder="Project name" required><select name="business_line_id" required>${lineOptions}</select><select name="status"><option value="lead">Lead</option><option value="scheduled">Scheduled</option><option value="active">Active</option></select><input name="project_type" placeholder="Inspection, electrical, renovation…"><input name="start_date" type="date"><button class="button primary" type="submit">Create project</button></form></div>
+        <div id="crmProjectComposer" class="crm-composer hidden"><div class="crm-composer-title"><h3>New project</h3><button class="crm-icon-button" type="button" data-crm-hide-composer="crmProjectComposer">×</button></div><form id="customerProjectQuick" class="business-form compact-form"><input name="name" placeholder="Project name" required><select name="business_line_id" required>${lineOptions}</select><select name="status"><option value="lead">Lead</option><option value="scheduled">Scheduled</option><option value="active">Active</option></select><input name="project_type" placeholder="Inspection, electrical, renovation…"><input name="start_date" type="date" aria-label="Start date"><input name="end_date" type="date" aria-label="Due date"><button class="button primary" type="submit">Create project</button></form></div>
         <div class="crm-section"><div class="crm-section-head"><h3>Projects</h3><button class="button secondary micro" type="button" data-crm-open="project">+ New project</button></div><div class="crm-section-body crm-mini-list">${projectRows||'<div class="crm-empty-small">No projects yet.</div>'}</div></div>
         <div class="crm-section"><div class="crm-section-head"><h3>Invoices</h3></div><div class="crm-section-body crm-mini-list">${invoiceRows||'<div class="crm-empty-small">No invoices yet.</div>'}</div></div>
       </div>
@@ -210,11 +214,11 @@
     $('#customerAppointmentQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;await action({action:'create_appointment',customer_id:id,...formData(form)});toast('Appointment scheduled');await loadLookups(true);await loadCustomers();await window.EWPROS_ADMIN_REFRESH?.();openCustomer(id);});
     $('#customerProjectQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;await action({action:'create_project',customer_id:id,service_address:c.service_address||null,...formData(form)});toast('Project created');await loadLookups(true);openCustomer(id);});
     $('#customerNoteQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'add_customer_note',customer_id:id,note:d.note});toast('Note added');openCustomer(id);});
-    $('#customerReminderQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'add_reminder',customer_id:id,title:d.title,due_at:d.due_at||null});toast('Reminder added');openCustomer(id);});
+    $('#customerReminderQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'add_reminder',customer_id:id,title:d.title,due_at:d.due_at||null});toast('Reminder added');await loadCustomers();openCustomer(id);});
     $$('[data-cancel-appointment]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Cancel this appointment? It will remain in customer history but will no longer be an active Auditor Wizard visit.',{action:'cancel_appointment',id:b.dataset.cancelAppointment},async()=>{await window.EWPROS_ADMIN_REFRESH?.();await openCustomer(id);},{title:'Cancel appointment',confirmLabel:'Cancel appointment'})));
-    $$('[data-complete-reminder]').forEach(b=>b.addEventListener('click',async()=>{await action({action:'complete_reminder',id:b.dataset.completeReminder});toast('Reminder completed');openCustomer(id);}));
+    $$('[data-complete-reminder]').forEach(b=>b.addEventListener('click',async()=>{await action({action:'complete_reminder',id:b.dataset.completeReminder});toast('Reminder completed');await loadCustomers();openCustomer(id);}));
     $$('[data-delete-note]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Delete this customer note?',{action:'delete_customer_note',id:b.dataset.deleteNote},()=>openCustomer(id))));
-    $$('[data-delete-reminder]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Delete this reminder?',{action:'delete_reminder',id:b.dataset.deleteReminder},()=>openCustomer(id))));
+    $$('[data-delete-reminder]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Delete this reminder?',{action:'delete_reminder',id:b.dataset.deleteReminder},async()=>{await loadCustomers();await openCustomer(id);})));
     $('[data-delete-customer]')?.addEventListener('click',()=>confirmedAction('Delete this customer if unused? If it has appointments or business history, EWPros will archive it instead.',{action:'delete_customer',id},async()=>{panel.classList.add('hidden');await loadLookups(true);await loadCustomers();}));
   }
 
@@ -256,8 +260,31 @@
 
   async function loadProjects(){
     state.projects=await get('projects');
-    const q=($('#projectSearch')?.value||'').toLowerCase().trim(); const rows=state.projects.projects.filter(p=>!q||[p.name,p.project_number,p.customer,p.businessLine,p.status].join(' ').toLowerCase().includes(q));
-    $('#projectTable').innerHTML=table(['Project','Customer','Business line','Status','Revenue','Direct cost','Labor','Profit','Actions'],rows.map(p=>`<tr><td><strong>${esc(p.name)}</strong><div class="muted-cell">${esc(p.project_number||'')}</div></td><td>${esc(p.customer||'—')}</td><td>${esc(p.businessLine)}</td><td>${status(p.status)}</td><td>${money(p.revenue)}</td><td>${money(p.directExpense)}</td><td>${money(p.laborCost)}</td><td class="${p.profit>=0?'money-positive':'money-negative'}">${money(p.profit)}</td><td><button class="button micro warn" data-delete-project="${p.id}">Delete / Archive</button></td></tr>`));
+    const q=($('#projectSearch')?.value||'').toLowerCase().trim();
+    const view=$('#projectViewFilter')?.value||'active';
+    let rows=view==='archived'?(state.projects.archivedProjects||[]):view==='all'?[...(state.projects.projects||[]),...(state.projects.archivedProjects||[])]:state.projects.projects||[];
+    rows=rows.filter(p=>!q||[p.name,p.project_number,p.customer,p.businessLine,p.status,p.end_date].join(' ').toLowerCase().includes(q));
+    rows.sort((a,b)=>{
+      if(view==='archived') return String(b.end_date||b.updated_at||'').localeCompare(String(a.end_date||a.updated_at||''));
+      const ad=a.end_date||'9999-12-31', bd=b.end_date||'9999-12-31';
+      return ad.localeCompare(bd)||String(a.name||'').localeCompare(String(b.name||''));
+    });
+    const projectRows=rows.map(p=>{
+      const isArchived=p.status==='archived';
+      let actions='';
+      if(isArchived){
+        actions=`<button class="button micro success" data-restore-project="${p.id}">Restore</button>`;
+      }else{
+        const complete=p.status!=='completed'&&p.status!=='cancelled'?`<button class="button micro secondary" data-complete-project="${p.id}">Complete</button>`:'';
+        const archive=p.status==='completed'?`<button class="button micro secondary" data-archive-project="${p.id}">Archive</button>`:'';
+        actions=`<div class="inline-actions">${complete}${archive}<button class="button micro warn" data-delete-project="${p.id}">Delete</button></div>`;
+      }
+      return `<tr><td><strong>${esc(p.name)}</strong><div class="muted-cell">${esc(p.project_number||'')}</div></td><td>${esc(p.customer||'—')}</td><td>${esc(p.businessLine)}</td><td>${status(p.status)}</td><td>${p.end_date?fmtDate(p.end_date):'—'}</td><td>${money(p.revenue)}</td><td>${money(p.directExpense)}</td><td>${money(p.laborCost)}</td><td class="${p.profit>=0?'money-positive':'money-negative'}">${money(p.profit)}</td><td>${actions}</td></tr>`;
+    });
+    $('#projectTable').innerHTML=table(['Project','Customer','Business line','Status','Due date','Revenue','Direct cost','Labor','Profit','Actions'],projectRows,view==='archived'?'No archived projects.':'No projects match this view.');
+    $$('[data-complete-project]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Mark this project completed?',{action:'update_project',id:b.dataset.completeProject,patch:{status:'completed'}},async()=>{await loadLookups(true);await loadProjects();},{title:'Complete project',confirmLabel:'Mark completed',danger:false,successMessage:'Project completed'})));
+    $$('[data-archive-project]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Archive this completed project? You can restore it later from Archived projects.',{action:'archive_project',id:b.dataset.archiveProject},async()=>{await loadLookups(true);await loadProjects();},{title:'Archive project',confirmLabel:'Archive',successMessage:'Project archived'})));
+    $$('[data-restore-project]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Restore this archived project to the completed-project list?',{action:'restore_project',id:b.dataset.restoreProject},async()=>{await loadLookups(true);await loadProjects();},{title:'Restore project',confirmLabel:'Restore',danger:false,successMessage:'Project restored'})));
     $$('[data-delete-project]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Delete this project if unused? Projects with financial or operational history will be archived instead.',{action:'delete_project',id:b.dataset.deleteProject},async()=>{await loadLookups(true);await loadProjects();})));
   }
 
@@ -375,7 +402,7 @@
   $('#crmImportOpen')?.addEventListener('click',()=>openCrmModal('crmImportModal'));
   $$('[data-crm-close]').forEach(b=>b.addEventListener('click',()=>closeCrmModal(b.dataset.crmClose)));
   $$('.crm-modal-overlay').forEach(overlay=>overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.add('hidden');}));
-  $('#crmSearch')?.addEventListener('input',renderCustomerList); $('#crmStageFilter')?.addEventListener('change',renderCustomerList); $('#crmLineFilter')?.addEventListener('change',renderCustomerList); $('#projectSearch')?.addEventListener('input',()=>loadProjects()); $('#bankReviewFilter')?.addEventListener('change',renderBanking);
+  $('#crmSearch')?.addEventListener('input',renderCustomerList); $('#crmStageFilter')?.addEventListener('change',renderCustomerList); $('#crmLineFilter')?.addEventListener('change',renderCustomerList); $('#projectSearch')?.addEventListener('input',()=>loadProjects()); $('#projectViewFilter')?.addEventListener('change',()=>loadProjects()); $('#bankReviewFilter')?.addEventListener('change',renderBanking);
 
   $('#crmCustomerFile')?.addEventListener('change',e=>{state.crmFile=null;state.crmImportPreview=null;const f=e.target.files?.[0];$('#crmImportFileStatus').textContent=f?`Selected: ${f.name}`:'No customer file selected.';$('#crmConfirmImport').disabled=true;$('#crmImportPreview').innerHTML='';});
   $('#crmImportForm')?.addEventListener('submit',async e=>{e.preventDefault();try{await previewCrmImport();}catch(err){alert(err.message);}});

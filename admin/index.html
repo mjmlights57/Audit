@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111827">
   <title>EWPros Administrator Dashboard</title>
   <link rel="icon" href="../assets/icon.svg">
-  <link rel="stylesheet" href="admin.css?v=3.1.1">
+  <link rel="stylesheet" href="admin.css?v=3.1.2">
 </head>
 <body>
   <div id="loginPanel" class="login-screen">
@@ -29,7 +29,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <div class="brand-mark small">A</div>
-        <div><strong>EWPros</strong><span>Administrator · v3.1.1</span></div>
+        <div><strong>EWPros</strong><span>Administrator · v3.1.2</span></div>
       </div>
       <nav>
         <span class="nav-section-label">Business</span>
@@ -41,14 +41,19 @@
         <button class="nav-item" data-view="team">Team &amp; Timesheets</button>
         <button class="nav-item" data-view="mileage">Mileage</button>
         <button class="nav-item" data-view="reports">Reports</button>
-        <span class="nav-section-label">Audit tools</span>
-        <button class="nav-item" data-view="workspace">Audit Workspace</button>
-        <button class="nav-item" data-view="import">Legacy Asana Import</button>
-        <button class="nav-item" data-view="appointments">Appointments</button>
-        <button class="nav-item" data-view="history">Import History</button>
+        <details class="nav-group" open>
+          <summary>Audit tools</summary>
+          <div class="nav-group-items">
+            <button class="nav-item" data-view="workspace">Audit Workspace</button>
+            <button class="nav-item" data-view="import">Legacy Asana Import</button>
+            <button class="nav-item" data-view="appointments">Appointments</button>
+            <button class="nav-item" data-view="history">Import History</button>
+            <a class="audit-tool-link" href="../">Auditor app</a>
+            <a class="audit-tool-link" href="https://del57.netlify.app/" target="_blank" rel="noopener noreferrer">StrikeCheck CRM</a>
+          </div>
+        </details>
       </nav>
       <div class="sidebar-bottom">
-        <a href="../">Auditor app</a>
         <button id="adminLogout" class="link-button">Log out</button>
       </div>
     </aside>
@@ -146,10 +151,10 @@
         <details class="panel business-form-panel"><summary>Create project</summary><form id="projectForm" class="business-form form-grid">
           <label>Project name<input name="name" required></label><label>Project number<input name="project_number"></label><label>Customer<select name="customer_id" data-business-options="customers"><option value="">No customer</option></select></label>
           <label>Business line<select name="business_line_id" data-business-options="business-lines" required></select></label><label>Status<select name="status"><option value="lead">Lead</option><option value="scheduled">Scheduled</option><option value="active" selected>Active</option><option value="on_hold">On hold</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>
-          <label>Type<input name="project_type" placeholder="Inspection, electrical, renovation…"></label><label>Start date<input type="date" name="start_date"></label><label>Quoted amount<input type="number" step="0.01" name="quoted_amount"></label>
+          <label>Type<input name="project_type" placeholder="Inspection, electrical, renovation…"></label><label>Start date<input type="date" name="start_date"></label><label>Due date<input type="date" name="end_date"></label><label>Quoted amount<input type="number" step="0.01" name="quoted_amount"></label>
           <label class="span-2">Service address<input name="service_address"></label><label class="span-all">Description<textarea name="description" rows="2"></textarea></label><div class="form-actions span-all"><button class="button primary" type="submit">Create project</button></div>
         </form></details>
-        <section class="panel"><div class="panel-heading"><div><h2>Project portfolio</h2><p>Revenue, direct expenses, labor cost, and profit by project.</p></div><input id="projectSearch" class="business-search" type="search" placeholder="Search projects…"></div><div id="projectTable" class="table-wrap"></div></section>
+        <section class="panel"><div class="panel-heading"><div><h2>Project portfolio</h2><p>Active projects are ordered by due date, with the project due first at the top.</p></div><div class="project-toolbar"><select id="projectViewFilter" class="business-search" aria-label="Project view"><option value="active">Active projects</option><option value="archived">Archived projects</option><option value="all">All projects</option></select><input id="projectSearch" class="business-search" type="search" placeholder="Search projects…"></div></div><div id="projectTable" class="table-wrap"></div></section>
       </section>
 
       <section id="view-banking" class="view">
@@ -161,25 +166,25 @@
             <form id="bankImportForm" class="business-form compact-form"><label>Account<select name="financial_account_id" id="bankImportAccount" required></select></label><label>Default business line<select name="default_business_line_id" id="bankImportBusinessLine"><option value="">Let rules / reviewer decide</option></select></label><label class="file-field">Statement<input id="bankStatementFile" type="file" accept=".csv,.ofx,.qfx,text/csv,application/x-ofx" required></label><div class="form-actions"><button id="previewBankImport" class="button secondary" type="submit">Preview statement</button><button id="confirmBankImport" class="button primary" type="button">Import transactions</button></div></form><div id="bankImportFileStatus" class="bank-file-status">No statement selected.</div><div id="bankImportPreview"></div>
           </section>
         </div>
-        <section class="panel"><div class="panel-heading"><div><h2>Transaction review queue</h2><p>Rules pre-fill categories. Review each transaction before posting to the books.</p></div><select id="bankReviewFilter"><option value="pending">Pending review</option><option value="all">All imported</option><option value="posted">Posted</option><option value="ignored">Ignored</option></select></div><div id="bankTransactionTable" class="table-wrap"></div></section>
-        <section class="panel"><div class="panel-heading"><div><h2>Transaction rules</h2><p>Case-insensitive keyword rules run automatically after every statement import.</p></div></div>
+        <details class="panel business-form-panel"><summary>Transaction review queue</summary><div class="collapsible-panel-body"><div class="panel-heading"><div><p>Rules pre-fill categories. Review each transaction before posting to the books.</p></div><select id="bankReviewFilter"><option value="pending">Pending review</option><option value="all">All imported</option><option value="posted">Posted</option><option value="ignored">Ignored</option></select></div><div id="bankTransactionTable" class="table-wrap"></div></div></details>
+        <details class="panel business-form-panel"><summary>Transaction rules</summary><div class="collapsible-panel-body"><p class="collapsible-help">Case-insensitive keyword rules run automatically after every statement import.</p>
           <form id="ruleForm" class="business-form rule-form"><label>Rule name<input name="name" required></label><label>Keywords<input name="keywords" required placeholder="callture, receptionhq"></label><label>Match<select name="match_mode"><option value="any">Any keyword</option><option value="all">All keywords</option></select></label><label>Category<select name="category_id" data-business-options="categories"></select></label><label>Business line<select name="business_line_id" data-business-options="business-lines"><option value="">No default</option></select></label><label>Priority<input name="priority" type="number" value="100"></label><button class="button primary" type="submit">Add rule</button></form><div id="ruleTable" class="table-wrap"></div>
-        </section>
-        <section class="panel"><div class="panel-heading"><div><h2>Bank import audit trail</h2><p>Every confirmed statement file and duplicate count.</p></div></div><div id="bankBatchTable" class="table-wrap"></div></section>
+        </div></details>
+        <details class="panel business-form-panel"><summary>Bank import audit trail</summary><div class="collapsible-panel-body"><p class="collapsible-help">Every confirmed statement file and duplicate count.</p><div id="bankBatchTable" class="table-wrap"></div></div></details>
       </section>
 
       <section id="view-accounting" class="view">
-        <section class="panel"><div class="panel-heading"><div><h2>Record income or expense</h2><p>Manual entries also create balanced journal entries.</p></div></div><form id="transactionForm" class="business-form form-grid">
+        <details class="panel business-form-panel"><summary>Record income or expense</summary><div class="collapsible-panel-body"><p class="collapsible-help">Manual entries also create balanced journal entries.</p><form id="transactionForm" class="business-form form-grid">
           <label>Date<input type="date" name="transaction_date" required></label><label>Account<select name="financial_account_id" data-business-options="financial-accounts" required></select></label><label>Counter account<select name="counter_financial_account_id" data-business-options="financial-accounts"><option value="">Only for transfers</option></select></label><label>Category<select name="category_id" data-business-options="categories" required></select></label><label>Amount<input type="number" step="0.01" min="0.01" name="amount" required></label>
           <label>Business line<select name="business_line_id" data-business-options="business-lines"><option value="">Company / unassigned</option></select></label><label>Customer<select name="customer_id" data-business-options="customers"><option value="">None</option></select></label><label>Project<select name="project_id" data-business-options="projects"><option value="">None</option></select></label><label>Vendor<select name="vendor_id" data-business-options="vendors"><option value="">None</option></select></label>
           <label class="span-all">Description<input name="description" required></label><div class="form-actions span-all"><button class="button primary" type="submit">Post transaction</button></div>
-        </form></section>
-        <section class="panel"><div class="panel-heading"><div><h2>Record invoice payment</h2><p>Updates the invoice balance and records cash-basis revenue automatically.</p></div></div><form id="invoicePaymentForm" class="business-form compact-form"><label>Invoice<select name="invoice_id" id="paymentInvoice" required></select></label><label>Date<input name="payment_date" type="date" required></label><label>Deposit account<select name="financial_account_id" id="paymentAccount" required></select></label><label>Amount<input name="amount" type="number" step="0.01" min="0.01" required></label><label>Method<select name="payment_method"><option value="ACH">ACH</option><option value="Check">Check</option><option value="Credit Card">Credit card</option><option value="Cash">Cash</option><option value="Zelle">Zelle</option><option value="Other">Other</option></select></label><label>Reference<input name="reference"></label><button class="button primary" type="submit">Record payment</button></form></section>
+        </form></div></details>
+        <details class="panel business-form-panel"><summary>Record invoice payment</summary><div class="collapsible-panel-body"><p class="collapsible-help">Updates the invoice balance and records cash-basis revenue automatically.</p><form id="invoicePaymentForm" class="business-form compact-form"><label>Invoice<select name="invoice_id" id="paymentInvoice" required></select></label><label>Date<input name="payment_date" type="date" required></label><label>Deposit account<select name="financial_account_id" id="paymentAccount" required></select></label><label>Amount<input name="amount" type="number" step="0.01" min="0.01" required></label><label>Method<select name="payment_method"><option value="ACH">ACH</option><option value="Check">Check</option><option value="Credit Card">Credit card</option><option value="Cash">Cash</option><option value="Zelle">Zelle</option><option value="Other">Other</option></select></label><label>Reference<input name="reference"></label><button class="button primary" type="submit">Record payment</button></form></div></details>
         <div class="business-grid">
           <section class="panel"><div class="panel-heading"><div><h2>Recent transactions</h2><p>Business and owner-equity activity.</p></div></div><div id="accountingTransactions" class="table-wrap"></div></section>
           <section class="panel"><div class="panel-heading"><div><h2>Invoices</h2><p>Invoices synchronized from the existing invoice worksheet.</p></div></div><div id="accountingInvoices" class="table-wrap"></div></section>
         </div>
-        <section class="panel"><div class="panel-heading"><div><h2>Accounting categories</h2><p>Use the standard EWPros categories or add your own income/expense categories. Categories already used in transactions are disabled instead of being removed from history.</p></div></div><form id="categoryForm" class="business-form compact-form"><label>Category name<input name="name" required placeholder="Example: Tool Rental"></label><label>Type<select name="behavior"><option value="expense">Expense</option><option value="income">Income</option></select></label><button class="button primary" type="submit">Add category</button></form><div id="categoryTable" class="table-wrap"></div></section>
+        <details class="panel business-form-panel"><summary>Accounting categories</summary><div class="collapsible-panel-body"><p class="collapsible-help">Use the standard EWPros categories or add your own income/expense categories. Categories already used in transactions are disabled instead of being removed from history.</p><form id="categoryForm" class="business-form compact-form"><label>Category name<input name="name" required placeholder="Example: Tool Rental"></label><label>Type<select name="behavior"><option value="expense">Expense</option><option value="income">Income</option></select></label><button class="button primary" type="submit">Add category</button></form><div id="categoryTable" class="table-wrap"></div></div></details>
         <details class="panel business-form-panel" open><summary>Vendors</summary><form id="vendorForm" class="business-form compact-form"><label>Vendor name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label><label>Address<input name="address"></label><button class="button primary" type="submit">Add vendor</button></form><div id="vendorTable" class="table-wrap" style="margin-top:14px"></div></details>
       </section>
 
@@ -585,6 +590,6 @@
   <script src="../pepco-online-data.js"></script>
   <script src="../space-types.js"></script>
   <script src="admin.js?v=3.0.4"></script>
-  <script src="business.js?v=3.1.1"></script>
+  <script src="business.js?v=3.1.2"></script>
 </body>
 </html>
