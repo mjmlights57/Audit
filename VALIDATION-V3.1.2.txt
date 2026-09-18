@@ -1,0 +1,13 @@
+EWPros v3.1.2 validation
+- CRM customer list columns: Customer, Stage, Next Action, Due Date, Business line, Contact, Notes.
+- Next Action and Due Date are populated from the earliest open CRM reminder.
+- Project create forms include Due date (projects.end_date).
+- Active project list sorts earliest due date first; projects without due dates sort last.
+- Projects page includes Active, Archived, and All views.
+- Completed projects can be archived; archived projects can be restored.
+- Accounting Categories, Record Invoice Payment, and Record Income or Expense are collapsible.
+- Banking Import Audit Trail, Transaction Rules, and Transaction Review Queue are collapsible.
+- Audit Tools is collapsible and contains Audit Workspace, Legacy Asana Import, Appointments, Import History, Auditor app, and StrikeCheck CRM.
+- StrikeCheck CRM URL: https://del57.netlify.app/
+- No new Supabase migration required beyond the existing v3.1.0 migration.
+- npm run check: 66/66 tests passed.
