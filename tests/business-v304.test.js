@@ -25,8 +25,8 @@ test('v3.0.4 bank import remains clickable and validates at click time',()=>{
 });
 
 test('business bundle remains cache-busted after later releases',()=>{
-  assert.match(read('admin.html'),/business\.js\?v=3\.1\.1/);
-  assert.match(read('admin/index.html'),/business\.js\?v=3\.1\.1/);
+  assert.match(read('admin.html'),/business\.js\?v=3\.1\.2/);
+  assert.match(read('admin/index.html'),/business\.js\?v=3\.1\.2/);
 });
 
 test('v3.0.4 worker removal uses clear in-app confirmation instead of window.confirm',()=>{
