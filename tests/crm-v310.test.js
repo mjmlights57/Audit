@@ -10,7 +10,7 @@ const crmImport = require('../netlify/functions/_crm-csv');
 test('v3.1 CRM remains the master customer workspace with import, export and scheduling', () => {
   const html = read('admin.html');
   const js = read('admin/business.js');
-  assert.match(html,/Administrator · v3\.1\.2/);
+  assert.match(html,/Administrator · v3\.1\.3/);
   assert.match(html,/id="crmImportOpen"/);
   assert.match(html,/id="crmExportCustomers"/);
   assert.match(html,/id="crmNewCustomerOpen"/);
