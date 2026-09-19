@@ -67,22 +67,26 @@
     if(!rows.length)return `<div class="empty">${esc(empty)}</div>`;
     return `<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
   }
-  function askConfirmation({title='Confirm action',message='',confirmLabel='Confirm',danger=true}={}){
+  function askConfirmation({title='Confirm action',message='',confirmLabel='Confirm',danger=true,requireText=''}={}){
     return new Promise(resolve=>{
       const previous=document.querySelector('.business-confirm-overlay'); if(previous) previous.remove();
       const overlay=document.createElement('div'); overlay.className='business-confirm-overlay';
-      overlay.innerHTML=`<div class="business-confirm-card" role="dialog" aria-modal="true" aria-labelledby="businessConfirmTitle"><h3 id="businessConfirmTitle">${esc(title)}</h3><p>${esc(message)}</p><div class="business-confirm-actions"><button type="button" class="button secondary" data-confirm-cancel>Cancel</button><button type="button" class="button ${danger?'warn':'primary'}" data-confirm-accept>${esc(confirmLabel)}</button></div></div>`;
+      const typedField=requireText?`<label class="field" for="businessConfirmTyped">Type <strong>${esc(requireText)}</strong> to permanently delete this project<input id="businessConfirmTyped" type="text" autocomplete="off" spellcheck="false" aria-label="Type ${esc(requireText)} to confirm"></label>`:'';
+      overlay.innerHTML=`<div class="business-confirm-card" role="dialog" aria-modal="true" aria-labelledby="businessConfirmTitle"><h3 id="businessConfirmTitle">${esc(title)}</h3><p>${esc(message)}</p>${typedField}<div class="business-confirm-actions"><button type="button" class="button secondary" data-confirm-cancel>Cancel</button><button type="button" class="button ${danger?'warn':'primary'}" data-confirm-accept ${requireText?'disabled':''}>${esc(confirmLabel)}</button></div></div>`;
       const finish=value=>{document.removeEventListener('keydown',onKey);overlay.remove();resolve(value);};
       const onKey=e=>{if(e.key==='Escape')finish(false);};
+      const confirmButton=overlay.querySelector('[data-confirm-accept]');
+      const input=overlay.querySelector('#businessConfirmTyped');
+      if(input) input.addEventListener('input',()=>{confirmButton.disabled=input.value!==requireText;});
       overlay.querySelector('[data-confirm-cancel]').addEventListener('click',()=>finish(false));
-      overlay.querySelector('[data-confirm-accept]').addEventListener('click',()=>finish(true));
+      confirmButton.addEventListener('click',()=>{if(!confirmButton.disabled)finish(true);});
       overlay.addEventListener('click',e=>{if(e.target===overlay)finish(false);});
       document.addEventListener('keydown',onKey); document.body.appendChild(overlay);
-      overlay.querySelector('[data-confirm-accept]').focus();
+      (input||confirmButton).focus();
     });
   }
   async function confirmedAction(message,payload,onDone,options={}){
-    const ok=await askConfirmation({title:options.title||'Confirm deletion',message,confirmLabel:options.confirmLabel||'Delete',danger:options.danger!==false});
+    const ok=await askConfirmation({title:options.title||'Confirm deletion',message,confirmLabel:options.confirmLabel||'Delete',danger:options.danger!==false,requireText:options.requireText||''});
     if(!ok)return;
     try{const result=await action(payload);const mode=result?.data?.mode;toast(options.successMessage||(mode==='archived'?'Archived':mode==='restored'?'Restored':mode==='deactivated'?'Deactivated':mode==='voided'?'Voided':'Deleted'));if(onDone)await onDone(result);}catch(err){alert(err.message);}
   }
@@ -273,7 +277,7 @@
       const isArchived=p.status==='archived';
       let actions='';
       if(isArchived){
-        actions=`<button class="button micro success" data-restore-project="${p.id}">Restore</button>`;
+        actions=`<div class="inline-actions"><button class="button micro success" data-restore-project="${p.id}">Restore</button><button class="button micro warn" data-purge-project="${p.id}">Permanently delete</button></div>`;
       }else{
         const complete=p.status!=='completed'&&p.status!=='cancelled'?`<button class="button micro secondary" data-complete-project="${p.id}">Complete</button>`:'';
         const archive=p.status==='completed'?`<button class="button micro secondary" data-archive-project="${p.id}">Archive</button>`:'';
@@ -286,6 +290,11 @@
     $$('[data-archive-project]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Archive this completed project? You can restore it later from Archived projects.',{action:'archive_project',id:b.dataset.archiveProject},async()=>{await loadLookups(true);await loadProjects();},{title:'Archive project',confirmLabel:'Archive',successMessage:'Project archived'})));
     $$('[data-restore-project]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Restore this archived project to the completed-project list?',{action:'restore_project',id:b.dataset.restoreProject},async()=>{await loadLookups(true);await loadProjects();},{title:'Restore project',confirmLabel:'Restore',danger:false,successMessage:'Project restored'})));
     $$('[data-delete-project]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Delete this project if unused? Projects with financial or operational history will be archived instead.',{action:'delete_project',id:b.dataset.deleteProject},async()=>{await loadLookups(true);await loadProjects();})));
+    $$('[data-purge-project]').forEach(b=>b.addEventListener('click',()=>{
+      const project=rows.find(p=>p.id===b.dataset.purgeProject);
+      confirmedAction(`Permanently delete “${project?.name||'this project'}” and all its project-specific appointments, reminders, invoices, payments, financial entries, worker payments, time, and mileage? THIS CANNOT BE UNDONE and may change financial reports. Original imported bank statement rows will be kept and affected posted rows returned to review. Back up your data first.`,{action:'purge_archived_project',id:b.dataset.purgeProject,confirm:'DELETE'},async()=>{await loadLookups(true);await loadProjects();state.dashboard=null;state.accounting=null;state.banking=null;state.reports=null;state.crm=null;},{title:'Permanently delete archived project',confirmLabel:'Permanently delete',requireText:'DELETE',successMessage:'Archived project and related entries permanently deleted'});
+    }));
+
   }
 
   function mapBy(rows,key='id'){return new Map((rows||[]).map(r=>[r[key],r]));}
