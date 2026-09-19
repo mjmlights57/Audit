@@ -316,6 +316,9 @@ async function deleteOrArchiveCustomer(supabase, id) {
 
 async function deleteOrArchiveProject(supabase, id) {
   id = required(id,'Project');
+  const {data:project,error:projectError}=await supabase.from('projects').select('status').eq('id',id).single();
+  if(projectError)throw projectError;
+  if(project.status==='archived')throw new Error('Use Permanently delete in Projects → Archived projects to remove an archived project.');
   const used = await anyReferences(supabase,[
     ['appointments','project_id',id],['invoices','project_id',id],['payments','project_id',id],['financial_transactions','project_id',id],['bank_transactions','project_id',id],['time_entries','project_id',id],['worker_payments','project_id',id],['mileage_trips','project_id',id]
   ]);
@@ -620,6 +623,14 @@ exports.handler = async event => {
     else if (action === 'archive_project') { const {data:d,error}=await supabase.from('projects').update({status:'archived'}).eq('id',required(body.id,'Project')).select('*').single(); if(error)throw error; data={mode:'archived',record:d}; }
     else if (action === 'restore_project') { const {data:d,error}=await supabase.from('projects').update({status:'completed'}).eq('id',required(body.id,'Project')).select('*').single(); if(error)throw error; data={mode:'restored',record:d}; }
     else if (action === 'delete_project') data = await deleteOrArchiveProject(supabase, body.id);
+    else if (action === 'purge_archived_project') {
+      const projectId = required(body.id, 'Project');
+      if (body.confirm !== 'DELETE') throw new Error('Type DELETE to confirm permanent removal.');
+      const { data: purged, error: purgeError } = await supabase.rpc('ewpros_purge_archived_project', { p_project_id: projectId });
+      if (purgeError) throw purgeError;
+      if (!purged || purged.mode !== 'permanently_deleted') throw new Error('The project could not be permanently deleted.');
+      data = purged;
+    }
     else if (action === 'create_worker') data = await createWorker(supabase, body);
     else if (action === 'delete_worker') data = await deleteOrDeactivateWorker(supabase, body.id);
     else if (action === 'set_worker_timesheet_pin') { const id=required(body.id,'Worker'); const patch={...pinFields(required(body.timesheet_pin,'Timesheet PIN')),timesheet_access_enabled:body.timesheet_access_enabled!==false}; const {data:d,error}=await supabase.from('workers').update(patch).eq('id',id).select('*').single(); if(error)throw error; data=d; }
