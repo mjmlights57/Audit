@@ -1,8 +1,8 @@
 {
   "name": "ewpros-auditor-wizard",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "private": true,
-  "description": "EWPros v3.1.2 CRM workflow, due-date project ordering, archive/restore, collapsible admin sections, and integrated audit-tool navigation",
+  "description": "EWPros v3.1.3 archived-project permanent deletion with atomic removal of project-specific records",
   "scripts": {
     "dev": "npx netlify dev",
     "check": "node --check app.js && node --check lighting-catalog.js && node --check p-data.js && node --check control-data.js && node --check pepco-online-data.js && node --check space-types.js && node --check audit-export.js && node --check admin/admin.js && node --check admin/business.js && node --check netlify/functions/_business-core.js && node --check netlify/functions/business-data.js && node --check netlify/functions/business-action.js && node --check netlify/functions/_crm-csv.js && node --check netlify/functions/crm-import.js && node --check netlify/functions/_bank-parser.js && node --check netlify/functions/bank-import.js && node --check netlify/functions/_admin-auth.js && node --check netlify/functions/_asana-csv.js && node --check netlify/functions/_supabase.js && node --check netlify/functions/admin-login.js && node --check netlify/functions/send-audit-email.js && node --check netlify/functions/get-appointments.js && node --check netlify/functions/admin-dashboard.js && node --check netlify/functions/import-appointments.js && node --test tests/*.test.js",

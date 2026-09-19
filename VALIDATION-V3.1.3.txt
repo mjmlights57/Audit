@@ -1,0 +1,6 @@
+EWPros v3.1.3 validation scope:
+- The full original automated tests and new targeted API tests run using npm run check.
+- New tests exercise the actual server request handler with a fake Supabase RPC for confirmed deletion, refused unconfirmed deletion, and database error handling.
+- The SQL itself has been reviewed and statically checked but has NOT been executed against the user's live Supabase database or a local PostgreSQL instance.
+- Both admin entry points are cache-busted to 3.1.3; no .env secrets are packaged.
+- Running the SQL migration installs the function; it does not itself delete any projects.
