@@ -1,0 +1,7 @@
+EWPros v3.1.4 validation scope:
+- Customer Notes editable from Overview and Edit Customer.
+- Individual customer Activity comments editable and deletable.
+- CRM list Notes column uses latest Activity comment, falling back to customers.notes.
+- Both admin entry points cache-busted to v3.1.4.
+- No new Supabase migration required.
+- 75/75 automated regression tests passed.
