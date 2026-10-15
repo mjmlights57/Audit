@@ -32,7 +32,7 @@ const req = data => ({httpMethod:'POST',body:JSON.stringify(data)});
 test('archived projects have a separate permanent deletion action and a typed confirmation', () => {
   const js=read('admin/business.js');
   for(const htmlName of ['admin.html','admin/index.html'])
-    assert.match(read(htmlName),/Administrator · v3\.1\.3/);
+    assert.match(read(htmlName),/Administrator · v3\.1\.[34]/);
   assert.match(js,/data-restore-project="\$\{p\.id\}"/);
   assert.match(js,/data-purge-project="\$\{p\.id\}"/);
   assert.match(js,/action:'purge_archived_project'/);

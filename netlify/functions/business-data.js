@@ -81,14 +81,22 @@ async function dashboard(supabase, lookups) {
 
 async function customersView(supabase, lookups, customerId) {
   if (!customerId) {
-    const reminders = await fetchAll(supabase, 'reminders', 'id,customer_id,title,due_at,status', q => q.eq('status', 'open').order('due_at', { ascending: true, nullsFirst: false }));
+    const [reminders, customerNotes] = await Promise.all([
+      fetchAll(supabase, 'reminders', 'id,customer_id,title,due_at,status', q => q.eq('status', 'open').order('due_at', { ascending: true, nullsFirst: false })),
+      fetchAll(supabase, 'customer_notes', 'id,customer_id,note,created_at', q => q.order('created_at', { ascending: false }))
+    ]);
     const nextByCustomer = new Map();
     for (const reminder of reminders) {
       if (reminder.customer_id && !nextByCustomer.has(reminder.customer_id)) nextByCustomer.set(reminder.customer_id, reminder);
     }
+    const latestNoteByCustomer = new Map();
+    for (const note of customerNotes) {
+      if (note.customer_id && !latestNoteByCustomer.has(note.customer_id)) latestNoteByCustomer.set(note.customer_id, note);
+    }
     return { customers: lookups.customers.map(customer => {
       const next = nextByCustomer.get(customer.id);
-      return { ...customer, next_action: next?.title || '', due_date: next?.due_at || null };
+      const latest = latestNoteByCustomer.get(customer.id);
+      return { ...customer, next_action: next?.title || '', due_date: next?.due_at || null, latest_comment: latest?.note || '', latest_comment_at: latest?.created_at || null };
     }) };
   }
   const customer = lookups.customers.find(c => c.id === customerId);
