@@ -5,23 +5,23 @@ const path = require('node:path');
 const root = path.join(__dirname,'..');
 const read = p => fs.readFileSync(path.join(root,p),'utf8');
 
-test('v3.1.4 CRM customer notes stay editable after projects exist',()=>{
+test('CRM customer requirements are read-only until Edit and comments stay editable',()=>{
   const js=read('admin/business.js');
-  assert.match(js,/id="customerNotesQuick"/);
-  assert.match(js,/Customer notes<textarea name="notes"/);
-  assert.match(js,/action:'update_customer',id,patch:\{notes:d\.notes\|\|''\}/);
+  assert.doesNotMatch(js,/id="customerNotesQuick"/);
+  assert.match(js,/Customer Notes &amp; Requirements<textarea name="notes"/);
+  assert.match(js,/crm-contact-label">Customer Notes &amp; Requirements/);
   assert.match(js,/data-edit-note=/);
   assert.match(js,/action:'update_customer_note'/);
 });
 
-test('v3.1.4 CRM list displays latest customer comment before static notes',()=>{
+test('CRM list displays latest customer comment before static notes',()=>{
   const data=read('netlify/functions/business-data.js');
   const js=read('admin/business.js');
   assert.match(data,/latestNoteByCustomer/);
   assert.match(data,/latest_comment: latest\?\.note/);
   assert.match(data,/latest_comment_at: latest\?\.created_at/);
   assert.match(js,/c\.latest_comment\|\|c\.notes/);
-  assert.match(js,/Latest comment/);
+  assert.match(js,/Latest Comment/);
 });
 
 test('v3.1.4 exposes update_customer_note in the server action handler',()=>{
@@ -33,7 +33,7 @@ test('v3.1.4 exposes update_customer_note in the server action handler',()=>{
 test('both admin entry points load the v3.1.4 CRM bundle',()=>{
   for(const file of ['admin.html','admin/index.html']){
     const html=read(file);
-    assert.match(html,/Administrator · v3\.1\.4/);
-    assert.match(html,/business\.js\?v=3\.1\.4/);
+    assert.match(html,/Administrator · v3\.2\.0/);
+    assert.match(html,/business\.js\?v=3\.2\.0/);
   }
 });

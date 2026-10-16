@@ -33,7 +33,8 @@ const ALIASES = {
   customer_type: ['stage','status','customer type','type'],
   source: ['source','lead source'],
   notes: ['notes','note','comments','comment'],
-  business_line: ['business line','line of business','division']
+  business_line: ['business line','line of business','division'],
+  customer_brand: ['ewp/mjm customer','customer brand','brand','company brand','issuing company']
 };
 
 function headerKey(header) {
@@ -44,10 +45,18 @@ function headerKey(header) {
 
 function normalizeStage(value, fallback='customer') {
   const v = norm(value);
-  if (/lead|prospect/.test(v)) return 'lead';
+  if (/lead|prospect/.test(v)) return 'prospect';
+  if (/follow.?up|followup/.test(v)) return 'follow_up';
   if (/inactive|archive/.test(v)) return 'inactive';
   if (/customer|client|active/.test(v)) return 'customer';
-  return fallback === 'lead' ? 'lead' : 'customer';
+  return ['prospect','customer','follow_up','inactive'].includes(fallback) ? fallback : 'customer';
+}
+
+function normalizeBrand(value, fallback='') {
+  const v = norm(value);
+  if (/mjm/.test(v)) return 'MJMLight';
+  if (/ewp|ewpros/.test(v)) return 'EWPros';
+  return ['EWPros','MJMLight'].includes(fallback) ? fallback : '';
 }
 
 function normalizeRow(raw, headers, defaults={}) {
@@ -68,6 +77,7 @@ function normalizeRow(raw, headers, defaults={}) {
     state_code: clean(row.state_code).toUpperCase().slice(0, 2),
     zipcode: clean(row.zipcode),
     customer_type: normalizeStage(row.customer_type, defaults.default_customer_type),
+    customer_brand: normalizeBrand(row.customer_brand, defaults.default_customer_brand),
     source: clean(row.source) || 'crm_import',
     notes: clean(row.notes),
     business_line: clean(row.business_line),
@@ -118,6 +128,7 @@ function parseCustomerCsv(csvText, defaults={}, businessLines=[]) {
     if (!customer.display_name) errors.push('Customer/Company name is missing.');
     if (customer.business_line) customer.primary_business_line_id = findLine(customer.business_line) || customer.primary_business_line_id;
     if (!customer.primary_business_line_id) errors.push('Business line is missing or was not recognized.');
+    if (!customer.customer_brand) errors.push('EWP/MJM Customer is missing or was not recognized.');
     return { rowNumber:index+2, customer, errors };
   });
   return { headers, recognized, rows };
@@ -125,7 +136,7 @@ function parseCustomerCsv(csvText, defaults={}, businessLines=[]) {
 
 function mergePatch(existing, incoming) {
   const patch={};
-  for (const key of ['display_name','company_name','contact_name','phone','email','service_address','city','state_code','zipcode','notes','primary_business_line_id']) {
+  for (const key of ['display_name','company_name','contact_name','phone','email','service_address','city','state_code','zipcode','notes','primary_business_line_id','customer_brand']) {
     if (clean(incoming[key]) && clean(existing[key]) !== clean(incoming[key])) patch[key]=incoming[key];
   }
   if (incoming.customer_type && existing.customer_type !== incoming.customer_type) patch.customer_type=incoming.customer_type;
@@ -134,4 +145,4 @@ function mergePatch(existing, incoming) {
 }
 
 
-module.exports={headerKey,normalizeStage,normalizeRow,customerMatch,parseCustomerCsv,mergePatch,fallbackCsvObjects};
+module.exports={headerKey,normalizeStage,normalizeBrand,normalizeRow,customerMatch,parseCustomerCsv,mergePatch,fallbackCsvObjects};

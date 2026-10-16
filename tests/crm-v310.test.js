@@ -10,7 +10,7 @@ const crmImport = require('../netlify/functions/_crm-csv');
 test('v3.1 CRM remains the master customer workspace with import, export and scheduling', () => {
   const html = read('admin.html');
   const js = read('admin/business.js');
-  assert.match(html,/Administrator · v3\.1\.4/);
+  assert.match(html,/Administrator · v3\.2\.0/);
   assert.match(html,/id="crmImportOpen"/);
   assert.match(html,/id="crmExportCustomers"/);
   assert.match(html,/id="crmNewCustomerOpen"/);
@@ -36,13 +36,14 @@ test('CRM CSV parser recognizes common customer headers and line names', () => {
     'Customer Name,Contact Name,Phone,Email,Service Address,City,State,Zip,Business Line,Stage',
     'ABC Hair Salon,Sarah,301-555-1000,sarah@example.com,123 Main St,Bowie,MD,20715,Utility Programs,Lead'
   ].join('\n');
-  const parsed = crmImport.parseCustomerCsv(csv,{default_business_line_id:'fallback',default_customer_type:'customer'},[
+  const parsed = crmImport.parseCustomerCsv(csv,{default_business_line_id:'fallback',default_customer_type:'customer',default_customer_brand:'EWPros'},[
     {id:'utility-id',code:'utility_programs',name:'Utility Programs'}
   ]);
   assert.equal(parsed.rows.length,1);
   assert.equal(parsed.rows[0].customer.display_name,'ABC Hair Salon');
   assert.equal(parsed.rows[0].customer.primary_business_line_id,'utility-id');
-  assert.equal(parsed.rows[0].customer.customer_type,'lead');
+  assert.equal(parsed.rows[0].customer.customer_type,'prospect');
+  assert.equal(parsed.rows[0].customer.customer_brand,'EWPros');
 });
 
 test('CRM duplicate matching prefers email then phone then name and address', () => {
@@ -63,10 +64,10 @@ test('Auditor Wizard accepts CRM appointments and no longer labels assignment as
 
 test('CRM export-style headers can be imported back into CRM', () => {
   const csv = [
-    'display_name,company_name,contact_name,phone,email,service_address,city,state_code,zipcode,business_line,customer_type,source,notes',
-    'Export Test,Export Test,Pat,3015552222,pat@example.com,10 Test Rd,Bowie,MD,20715,Utility Programs,customer,manual,Imported again'
+    'display_name,company_name,contact_name,phone,email,service_address,city,state_code,zipcode,business_line,customer_type,customer_brand,source,notes',
+    'Export Test,Export Test,Pat,3015552222,pat@example.com,10 Test Rd,Bowie,MD,20715,Utility Programs,customer,EWPros,manual,Imported again'
   ].join('\n');
-  const parsed = crmImport.parseCustomerCsv(csv,{default_business_line_id:'fallback',default_customer_type:'lead'},[
+  const parsed = crmImport.parseCustomerCsv(csv,{default_business_line_id:'fallback',default_customer_type:'prospect',default_customer_brand:'EWPros'},[
     {id:'utility-id',code:'utility_programs',name:'Utility Programs'}
   ]);
   assert.equal(parsed.rows[0].customer.display_name,'Export Test');
