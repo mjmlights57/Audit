@@ -1460,7 +1460,7 @@ function showView(name) {
   $$('.view').forEach(view => view.classList.toggle('active', view.id === `view-${name}`));
   const titles = {
     'business-dashboard':'Business Dashboard', crm:'CRM', projects:'Projects', banking:'Banking', accounting:'Accounting',
-    team:'Team & Timesheets', mileage:'Mileage', reports:'Reports', workspace:'Audit Workspace', import:'Legacy Asana Import', appointments:'Appointments', history:'Import History'
+    team:'Team & Timesheets', mileage:'Mileage', reports:'Reports', notes:'Notes', workspace:'Audit Workspace', import:'Legacy Asana Import', appointments:'Appointments', history:'Import History'
   };
   $('#pageTitle').textContent = titles[name] || 'Dashboard';
   if (name === 'workspace') showWorkspaceTab(state.workspaceTab || 'main');

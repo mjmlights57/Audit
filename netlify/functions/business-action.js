@@ -19,6 +19,7 @@ async function inheritProjectDimensions(supabase, body) {
 async function createCustomer(supabase, body) {
   const payload = {
     customer_type: body.customer_type || 'customer',
+    customer_brand: required(body.customer_brand, 'EWP/MJM Customer'),
     primary_business_line_id: required(body.primary_business_line_id, 'Primary business line'),
     display_name: required(body.display_name, 'Customer name'),
     company_name: clean(body.company_name), contact_name: clean(body.contact_name), phone: clean(body.phone), email: clean(body.email),
@@ -135,7 +136,7 @@ async function createAppointment(supabase, body) {
   };
   const {data,error}=await supabase.from('appointments').insert(record).select('*').single();
   if(error)throw error;
-  if(customer.customer_type === 'lead') {
+  if(customer.customer_type === 'prospect') {
     await supabase.from('customers').update({customer_type:'customer',updated_at:new Date().toISOString()}).eq('id',customer.id);
   }
   return data;
@@ -147,6 +148,62 @@ async function cancelAppointment(supabase, id) {
   if(readError)throw readError;
   const sourcePayload={...(current.source_payload||{}),crm_status:'cancelled'};
   const {data,error}=await supabase.from('appointments').update({appointment_status:'cancelled',source_payload:sourcePayload}).eq('id',id).select('*').single();
+  if(error)throw error;
+  return data;
+}
+
+
+function docMoney(value) { return Math.round((Number(value)||0)*100)/100; }
+function sanitizeLineItems(items) {
+  return (Array.isArray(items)?items:[]).map((item,index)=>{
+    const quantity=Math.max(0,Number(item.quantity)||0);
+    const unit_price=Math.max(0,Number(item.unit_price)||0);
+    return {description:required(item.description,`Line item ${index+1} description`),quantity,unit_price,line_total:docMoney(quantity*unit_price)};
+  }).filter(item=>item.description);
+}
+
+async function saveProposal(supabase, body) {
+  const customerId=required(body.customer_id,'Customer');
+  const {data:customer,error:customerError}=await supabase.from('customers').select('id,customer_brand').eq('id',customerId).single();
+  if(customerError)throw customerError;
+  const brand=body.brand||customer.customer_brand;
+  if(!['EWPros','MJMLight'].includes(brand))throw new Error('Choose EWPros or MJMLight for this customer before creating a proposal.');
+  const items=sanitizeLineItems(body.line_items);
+  if(!items.length)throw new Error('Add at least one proposal line item.');
+  const total=docMoney(items.reduce((sum,item)=>sum+item.line_total,0));
+  const payload={
+    proposal_number:required(body.proposal_number,'Proposal number'), customer_id:customerId, project_id:clean(body.project_id), brand,
+    proposal_date:body.proposal_date||new Date().toISOString().slice(0,10), project_title:required(body.project_title,'Project title'),
+    scope_of_work:clean(body.scope_of_work), terms_conditions:clean(body.terms_conditions), line_items:items, subtotal:total,total,status:body.status||'draft',updated_at:new Date().toISOString()
+  };
+  const {data,error}=await supabase.from('proposals').upsert(payload,{onConflict:'proposal_number'}).select('*').single();
+  if(error)throw error;
+  return data;
+}
+
+async function saveInvoiceFromProposal(supabase, body) {
+  const proposalId=required(body.proposal_id,'Proposal');
+  const {data:proposal,error:proposalError}=await supabase.from('proposals').select('*').eq('id',proposalId).single();
+  if(proposalError)throw proposalError;
+  const items=sanitizeLineItems(body.line_items?.length?body.line_items:proposal.line_items);
+  if(!items.length)throw new Error('Add at least one invoice line item.');
+  const total=docMoney(items.reduce((sum,item)=>sum+item.line_total,0));
+  let businessLineId=clean(body.business_line_id);
+  if(!businessLineId && proposal.project_id){const {data:p}=await supabase.from('projects').select('business_line_id').eq('id',proposal.project_id).maybeSingle();businessLineId=p?.business_line_id||null;}
+  if(!businessLineId){const {data:c}=await supabase.from('customers').select('primary_business_line_id').eq('id',proposal.customer_id).single();businessLineId=c?.primary_business_line_id||null;}
+  const invoiceNumber=required(body.invoice_number,'Invoice number');
+  const invoiceDate=body.invoice_date||new Date().toISOString().slice(0,10);
+  const invoicePayload={invoice_number:invoiceNumber,customer_id:proposal.customer_id,project_id:proposal.project_id,business_line_id:businessLineId,proposal_id:proposal.id,invoice_date:invoiceDate,due_date:clean(body.due_date),status:'draft',subtotal:total,incentive_amount:0,total,amount_paid:0,balance_due:total,notes:clean(body.notes),legacy_payload:{source:'crm_proposal',proposal_number:proposal.proposal_number,brand:proposal.brand,project_title:body.project_title||proposal.project_title}};
+  const {data:invoice,error}=await supabase.from('invoices').upsert(invoicePayload,{onConflict:'invoice_number'}).select('*').single();
+  if(error)throw error;
+  await supabase.from('invoice_items').delete().eq('invoice_id',invoice.id);
+  const {error:itemError}=await supabase.from('invoice_items').insert(items.map((item,index)=>({invoice_id:invoice.id,description:item.description,quantity:item.quantity,unit_price:item.unit_price,line_total:item.line_total,sort_order:index})));
+  if(itemError)throw itemError;
+  return {...invoice,items,proposal};
+}
+
+async function saveAppNotes(supabase, content) {
+  const {data,error}=await supabase.from('app_notes').upsert({note_key:'usage_guide',content:String(content||''),updated_at:new Date().toISOString()},{onConflict:'note_key'}).select('*').single();
   if(error)throw error;
   return data;
 }
@@ -616,6 +673,7 @@ exports.handler = async event => {
     else if (action === 'delete_customer_note') { const {error}=await supabase.from('customer_notes').delete().eq('id',required(body.id,'Note')); if(error)throw error; data={mode:'deleted'}; }
     else if (action === 'add_reminder') { const {data:d,error}=await supabase.from('reminders').insert({customer_id:clean(body.customer_id),project_id:clean(body.project_id),title:required(body.title,'Reminder title'),details:clean(body.details),due_at:clean(body.due_at)}).select('*').single(); if(error)throw error; data=d; }
     else if (action === 'complete_reminder') { const {data:d,error}=await supabase.from('reminders').update({status:'completed',completed_at:new Date().toISOString()}).eq('id',required(body.id,'Reminder')).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'toggle_reminder') { const done=!!body.completed; const {data:d,error}=await supabase.from('reminders').update({status:done?'completed':'open',completed_at:done?new Date().toISOString():null}).eq('id',required(body.id,'Reminder')).select('*').single(); if(error)throw error; data=d; }
     else if (action === 'delete_reminder') { const {error}=await supabase.from('reminders').delete().eq('id',required(body.id,'Reminder')); if(error)throw error; data={mode:'deleted'}; }
     else if (action === 'create_project') data = await createProject(supabase, body);
     else if (action === 'create_appointment') data = await createAppointment(supabase, body);
@@ -657,6 +715,9 @@ exports.handler = async event => {
     else if (action === 'review_bank_transaction') data = await reviewBankTransaction(supabase, body);
     else if (action === 'delete_bank_transaction') data = await deleteBankTransaction(supabase, body.id);
     else if (action === 'undo_bank_import') data = await undoBankImport(supabase, body.id);
+    else if (action === 'save_proposal') data = await saveProposal(supabase, body);
+    else if (action === 'save_invoice_from_proposal') data = await saveInvoiceFromProposal(supabase, body);
+    else if (action === 'save_app_notes') data = await saveAppNotes(supabase, body.content);
     else if (action === 'save_invoice') data = await saveInvoice(supabase, body);
     else if (action === 'void_invoice') { const id=required(body.id,'Invoice'); const paid=await countWhere(supabase,'payments','invoice_id',id); if(paid)throw new Error('This invoice has recorded payments. Reverse the payment before voiding the invoice.'); const {data:d,error}=await supabase.from('invoices').update({status:'void',balance_due:0}).eq('id',id).select('*').single(); if(error)throw error; data=d; }
     else if (action === 'record_invoice_payment') data = await recordInvoicePayment(supabase, body);

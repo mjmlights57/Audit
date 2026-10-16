@@ -1,0 +1,8 @@
+EWPros v3.2.0 validation
+- Built from v3.1.4 CRM Notes Fix.
+- Admin code syntax checks passed.
+- Netlify function syntax checks passed.
+- CRM branding/stage/task/comments tests passed.
+- Proposal/invoice PDF tool static integration tests passed.
+- Notes page/eSign integration tests passed.
+- Full automated suite: 82/82 passed via npm run check.

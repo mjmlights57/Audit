@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111827">
   <title>EWPros Administrator Dashboard</title>
   <link rel="icon" href="../assets/icon.svg">
-  <link rel="stylesheet" href="admin.css?v=3.1.4">
+  <link rel="stylesheet" href="admin.css?v=3.2.0">
 </head>
 <body>
   <div id="loginPanel" class="login-screen">
@@ -29,7 +29,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <div class="brand-mark small">A</div>
-        <div><strong>EWPros</strong><span>Administrator · v3.1.4</span></div>
+        <div><strong>EWPros</strong><span>Administrator · v3.2.0</span></div>
       </div>
       <nav>
         <span class="nav-section-label">Business</span>
@@ -41,6 +41,7 @@
         <button class="nav-item" data-view="team">Team &amp; Timesheets</button>
         <button class="nav-item" data-view="mileage">Mileage</button>
         <button class="nav-item" data-view="reports">Reports</button>
+        <button class="nav-item" data-view="notes">Notes</button>
         <details class="nav-group" open>
           <summary>Audit tools</summary>
           <div class="nav-group-items">
@@ -50,6 +51,7 @@
             <button class="nav-item" data-view="history">Import History</button>
             <a class="audit-tool-link" href="../">Auditor app</a>
             <a class="audit-tool-link" href="https://del57.netlify.app/" target="_blank" rel="noopener noreferrer">StrikeCheck CRM</a>
+            <a class="audit-tool-link" href="https://ewpros.com/esign/index.php" target="_blank" rel="noopener noreferrer">eSign</a>
           </div>
         </details>
       </nav>
@@ -107,7 +109,7 @@
 
           <div class="crm-filterbar">
             <div class="crm-search-wrap"><span aria-hidden="true">⌕</span><input id="crmSearch" type="search" placeholder="Search customers…" aria-label="Search customers"></div>
-            <select id="crmStageFilter" aria-label="Filter by stage"><option value="all">All stages</option><option value="lead">Leads</option><option value="customer">Customers</option><option value="inactive">Inactive</option></select>
+            <select id="crmStageFilter" aria-label="Filter by stage"><option value="all">All Stages</option><option value="prospect">Prospects</option><option value="customer">Customers</option><option value="follow_up">Follow-up</option><option value="inactive">Inactive</option></select>
             <select id="crmLineFilter" aria-label="Filter by business line"><option value="">All business lines</option></select>
             <span id="crmListCount" class="crm-list-count"></span>
           </div>
@@ -121,10 +123,10 @@
           <div class="crm-modal-card">
             <div class="crm-modal-head"><div><p class="crm-kicker">CRM</p><h3 id="crmCustomerModalTitle">New customer</h3></div><button class="crm-icon-button" type="button" data-crm-close="crmCustomerModal" aria-label="Close">×</button></div>
             <form id="customerForm" class="business-form form-grid">
-              <label>Name / company<input name="display_name" required></label><label>Primary business line<select name="primary_business_line_id" data-business-options="business-lines" required></select></label><label>Stage<select name="customer_type"><option value="lead">Lead</option><option value="customer" selected>Customer</option><option value="inactive">Inactive</option></select></label>
+              <label>Name / company<input name="display_name" required></label><label>EWP/MJM Customer<select name="customer_brand" required><option value="">Select company…</option><option value="EWPros">EWPros</option><option value="MJMLight">MJMLight</option></select></label><label>Primary business line<select name="primary_business_line_id" data-business-options="business-lines" required></select></label><label>Stage<select name="customer_type"><option value="prospect">Prospects</option><option value="customer" selected>Customers</option><option value="follow_up">Follow-up</option><option value="inactive">Inactive</option></select></label>
               <label>Contact name<input name="contact_name"></label><label>Phone<input name="phone" type="tel"></label><label>Email<input name="email" type="email"></label>
               <label class="span-2">Service address<input name="service_address"></label><label>City<input name="city"></label><label>State<input name="state_code" maxlength="2"></label><label>ZIP<input name="zipcode"></label>
-              <label class="span-all">Notes<textarea name="notes" rows="2"></textarea></label><div class="form-actions span-all crm-modal-actions"><button class="button secondary" type="button" data-crm-close="crmCustomerModal">Cancel</button><button class="button primary" type="submit">Save customer</button></div>
+              <label class="span-all">Customer Notes &amp; Requirements<textarea name="notes" rows="3"></textarea></label><div class="form-actions span-all crm-modal-actions"><button class="button secondary" type="button" data-crm-close="crmCustomerModal">Cancel</button><button class="button primary" type="submit">Save customer</button></div>
             </form>
           </div>
         </div>
@@ -135,7 +137,7 @@
             <p class="crm-modal-copy">Upload a CSV, preview matches, then import. EWPros checks email, phone, then name + service address to reduce duplicates.</p>
             <form id="crmImportForm" class="business-form compact-form">
               <label>Default business line<select name="default_business_line_id" id="crmImportBusinessLine" data-business-options="business-lines" required></select></label>
-              <label>Default stage<select name="default_customer_type"><option value="customer">Customer</option><option value="lead">Lead</option></select></label>
+              <label>Default stage<select name="default_customer_type"><option value="customer">Customers</option><option value="prospect">Prospects</option><option value="follow_up">Follow-up</option><option value="inactive">Inactive</option></select></label><label>Default EWP/MJM Customer<select name="default_customer_brand" required><option value="">Select company…</option><option value="EWPros">EWPros</option><option value="MJMLight">MJMLight</option></select></label>
               <label class="file-field">Customer CSV<input id="crmCustomerFile" type="file" accept=".csv,text/csv" required></label>
               <label class="checkline"><input name="update_existing" type="checkbox"> Update matching customers with nonblank imported values</label>
               <div class="form-actions"><button id="crmPreviewImport" class="button secondary" type="submit">Preview</button><button id="crmConfirmImport" class="button primary" type="button" disabled>Import customers</button></div>
@@ -145,6 +147,21 @@
         </div>
 
         <aside id="crmDetailPanel" class="crm-detail-drawer hidden" aria-label="Customer details"><div id="crmDetail"></div></aside>
+
+        <div id="documentModal" class="crm-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="documentModalTitle">
+          <div class="crm-modal-card document-modal-card">
+            <div class="crm-modal-head"><div><p class="crm-kicker">Customer document</p><h3 id="documentModalTitle">Proposal</h3></div><button class="crm-icon-button" type="button" data-crm-close="documentModal" aria-label="Close">×</button></div>
+            <div id="documentEditor"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-notes" class="view">
+        <section class="panel app-notes-panel">
+          <div class="panel-heading"><div><h2>Notes</h2><p>Editable operating guidance for using the EWPros application.</p></div><button id="saveAppNotes" class="button primary" type="button">Save notes</button></div>
+          <textarea id="appNotesEditor" class="app-notes-editor" aria-label="Application usage notes"></textarea>
+          <div id="appNotesStatus" class="muted-cell"></div>
+        </section>
       </section>
 
       <section id="view-projects" class="view">
@@ -589,7 +606,9 @@
   <script src="../control-data.js"></script>
   <script src="../pepco-online-data.js"></script>
   <script src="../space-types.js"></script>
-  <script src="admin.js?v=3.0.4"></script>
-  <script src="business.js?v=3.1.4"></script>
+  <script src="admin.js?v=3.2.0"></script>
+  <script src="../assets/pdf-lib.min.js"></script>
+  <script src="document-generator.js?v=3.2.0"></script>
+  <script src="business.js?v=3.2.0"></script>
 </body>
 </html>

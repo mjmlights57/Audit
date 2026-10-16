@@ -9,7 +9,7 @@
     const d = new Date(`${String(value).slice(0,10)}T12:00:00`);
     return Number.isNaN(d.getTime()) ? esc(value) : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   };
-  const state = { lookups:null, dashboard:null, customers:null, projects:null, banking:null, accounting:null, team:null, mileage:null, reports:null, bankPreview:null, bankFile:null, crmImportPreview:null, crmFile:null, editingRuleId:null };
+  const state = { lookups:null, dashboard:null, customers:null, projects:null, banking:null, accounting:null, team:null, mileage:null, reports:null, appNotes:null, bankPreview:null, bankFile:null, crmImportPreview:null, crmFile:null, editingRuleId:null };
 
   async function api(path, options={}) {
     const password = sessionStorage.getItem('ewpros_admin_password') || '';
@@ -63,6 +63,7 @@
   }
   function metric(label,value){return `<div class="metric"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`;}
   function status(value){const v=String(value||'').toLowerCase();return `<span class="tag ${esc(v)}">${esc(value||'—')}</span>`;}
+  const crmStageLabel=value=>({prospect:'Prospects',customer:'Customers',follow_up:'Follow-up',inactive:'Inactive'}[value]||value||'—');
   function table(headers,rows,empty='No records yet.'){
     if(!rows.length)return `<div class="empty">${esc(empty)}</div>`;
     return `<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
@@ -123,14 +124,14 @@
       const contactSecondary=c.contact_name?(c.phone||c.email||''):c.phone?(c.email||''):'';
       const notes=(c.latest_comment||c.notes||'').trim();
       const noteTitle=c.latest_comment_at?`${notes} · ${new Date(c.latest_comment_at).toLocaleString()}`:notes;
-      return `<tr class="customer-row" data-customer-id="${c.id}"><td><div class="crm-name-cell"><span class="crm-avatar">${initial}</span><span class="crm-name-text"><strong>${esc(c.display_name)}</strong>${c.company_name&&c.company_name!==c.display_name?`<span class="muted-cell">${esc(c.company_name)}</span>`:''}</span></div></td><td>${status(c.customer_type)}</td><td>${esc(c.next_action||'—')}</td><td>${c.due_date?fmtDate(c.due_date):'—'}</td><td>${esc(lineMap.get(c.primary_business_line_id)?.name||'—')}</td><td><div class="crm-contact-line">${esc(contactPrimary)}${contactSecondary?`<div class="muted-cell">${esc(contactSecondary)}</div>`:''}</div></td><td><div class="crm-notes-cell" title="${esc(noteTitle)}">${esc(notes||'—')}</div></td><td class="crm-chevron">›</td></tr>`;
+      return `<tr class="customer-row" data-customer-id="${c.id}"><td><div class="crm-name-cell"><span class="crm-avatar">${initial}</span><span class="crm-name-text"><strong>${esc(c.display_name)}</strong>${c.company_name&&c.company_name!==c.display_name?`<span class="muted-cell">${esc(c.company_name)}</span>`:''}</span></div></td><td>${status(crmStageLabel(c.customer_type))}</td><td>${esc(c.next_action||'—')}</td><td>${c.due_date?fmtDate(c.due_date):'—'}</td><td>${esc(lineMap.get(c.primary_business_line_id)?.name||'—')}</td><td><div class="crm-contact-line">${esc(contactPrimary)}${contactSecondary?`<div class="muted-cell">${esc(contactSecondary)}</div>`:''}</div></td><td><div class="crm-notes-cell" title="${esc(noteTitle)}">${esc(notes||'—')}</div></td><td class="crm-chevron">›</td></tr>`;
     }),'No customers match this view.');
     $$('.customer-row').forEach(row=>row.addEventListener('click',()=>openCustomer(row.dataset.customerId)));
   }
   async function loadCustomers(){state.customers=await get('customers');renderCustomerList();}
   async function openCustomer(id){
     const data=await api(`/.netlify/functions/business-data?view=customers&id=${encodeURIComponent(id)}`); const c=data.customer;
-    const transactions=data.transactions||[], invoices=data.invoices||[], notes=data.notes||[], reminders=data.reminders||[], appointments=data.appointments||[];
+    const transactions=data.transactions||[], invoices=data.invoices||[], notes=data.notes||[], reminders=data.reminders||[], appointments=data.appointments||[], proposals=data.proposals||[];
     const revenue=transactions.filter(t=>['income','customer_payment'].includes(t.transaction_type)&&!t.personal).reduce((a,t)=>a+num(t.amount),0);
     const cost=transactions.filter(t=>['expense','vendor_payment'].includes(t.transaction_type)&&!t.personal).reduce((a,t)=>a+num(t.amount),0);
     const outstanding=invoices.reduce((a,i)=>a+num(i.balance_due),0);
@@ -149,38 +150,39 @@
     const appointmentRows=appointments.map(a=>`<tr><td>${fmtDate(a.scheduledDate)}</td><td><strong>${esc(a.appointment_type||a.source_payload?.appointment_type||'Appointment')}</strong><div class="muted-cell">${esc(a.scheduledTime||'Time not set')}${a.endTime?` – ${esc(a.endTime)}`:''}</div></td><td>${esc(a.assignedWorker||'Unassigned')}</td><td>${status(a.crmStatus||a.appointment_status)}</td><td><span class="crm-source-pill">${esc(a.source_system==='crm'?'CRM':'Legacy')}</span></td><td>${a.appointment_status!=='cancelled'&&a.source_active?`<button class="button micro warn" data-cancel-appointment="${a.id}">Cancel</button>`:'—'}</td></tr>`);
     const projectRows=customerProjects.map(p=>`<div class="crm-mini-item"><strong>${esc(p.name)}</strong><div class="muted-cell">${esc(p.businessLine||'')} · ${esc(p.status)}${p.end_date?` · due ${fmtDate(p.end_date)}`:''}${p.project_number?` · ${esc(p.project_number)}`:''}</div></div>`).join('');
     const invoiceRows=invoices.slice(0,6).map(i=>`<div class="crm-mini-item"><strong>${esc(i.invoice_number)}</strong> <span class="muted-cell">${fmtDate(i.invoice_date)}</span><div class="muted-cell">${money(i.total)} · ${esc(i.status)} · balance ${money(i.balance_due)}</div></div>`).join('');
-    const reminderRows=openReminders.slice(0,5).map(r=>`<div class="crm-mini-item"><strong>${esc(r.title)}</strong><div class="muted-cell">${r.due_at?new Date(r.due_at).toLocaleString():'No due date'}</div><div class="inline-actions" style="margin-top:6px"><button class="button micro secondary" data-complete-reminder="${r.id}">Complete</button><button class="button micro warn" data-delete-reminder="${r.id}">Delete</button></div></div>`).join('');
+    const reminderRows=reminders.slice(0,12).map(r=>`<div class="crm-task-row ${r.status==='completed'?'task-done':''}"><label class="crm-task-check"><input type="checkbox" data-toggle-reminder="${r.id}" ${r.status==='completed'?'checked':''}><span></span></label><div class="crm-task-content"><strong>${esc(r.title)}</strong><div class="muted-cell">${r.due_at?new Date(r.due_at).toLocaleString():'No due date'}</div></div><button class="button micro ghost-warn" type="button" data-delete-reminder="${r.id}">Delete</button></div>`).join('');
     const latestComment=notes[0]||null;
     const noteRows=notes.slice(0,8).map(n=>`<div class="crm-mini-item" data-note-item="${n.id}"><div data-note-display="${n.id}">${esc(n.note)}</div><div class="muted-cell">${new Date(n.created_at).toLocaleString()}</div><div class="inline-actions" style="margin-top:6px"><button class="button micro secondary" type="button" data-edit-note="${n.id}">Edit</button><button class="button micro warn" type="button" data-delete-note="${n.id}">Delete</button></div><form class="quick-entry hidden" data-note-edit-form="${n.id}" style="margin-top:8px"><input name="note" value="${esc(n.note)}" required><button class="button micro primary" type="submit">Save</button><button class="button micro secondary" type="button" data-cancel-note-edit="${n.id}">Cancel</button></form></div>`).join('');
     const transactionRows=transactions.slice(0,50).map(t=>`<tr><td>${fmtDate(t.transaction_date)}</td><td>${esc(t.transaction_type)}</td><td>${esc(t.description||'')}</td><td>${money(t.amount)}</td></tr>`);
     const panel=$('#crmDetailPanel'); panel.classList.remove('hidden');
     $('#crmDetail').innerHTML=`<div class="crm-drawer-inner">
       <div class="crm-drawer-head">
-        <div class="crm-drawer-topline"><div class="crm-drawer-title"><span class="crm-avatar">${esc((c.display_name||'?').trim().slice(0,1).toUpperCase())}</span><div><h2>${esc(c.display_name)}</h2><div class="muted-cell">${esc(lineMap.get(c.primary_business_line_id)?.name||'No business line')} · ${esc(c.customer_type||'customer')}</div></div></div><button id="crmCloseDetail" class="crm-icon-button" type="button" aria-label="Close customer">×</button></div>
-        <div class="crm-drawer-actions"><button class="button primary" type="button" data-crm-open="appointment">Schedule</button><button class="button secondary" type="button" data-crm-open="project">New project</button><button class="button secondary" type="button" data-crm-open="edit">Edit</button></div>
+        <div class="crm-drawer-topline"><div class="crm-drawer-title"><span class="crm-avatar">${esc((c.display_name||'?').trim().slice(0,1).toUpperCase())}</span><div><h2>${esc(c.display_name)}</h2><div class="muted-cell">${esc(lineMap.get(c.primary_business_line_id)?.name||'No business line')} · ${esc(crmStageLabel(c.customer_type))}</div></div></div><button id="crmCloseDetail" class="crm-icon-button" type="button" aria-label="Close customer">×</button></div>
+        <div class="crm-drawer-actions"><button class="button primary" type="button" data-crm-open="appointment">Schedule</button><button class="button secondary" type="button" data-crm-open="project">New project</button><button class="button secondary" type="button" data-create-proposal>Proposal</button><button class="button secondary" type="button" data-create-invoice>Invoice</button><button class="button secondary" type="button" data-crm-open="edit">Edit</button></div>
       </div>
       <div class="crm-contact-strip">
         <div class="crm-contact-item"><span class="crm-contact-label">Contact</span><div class="crm-contact-value">${esc(c.contact_name||'—')}</div></div>
         <div class="crm-contact-item"><span class="crm-contact-label">Phone / Email</span><div class="crm-contact-value">${esc(c.phone||c.email||'—')}</div></div>
         <div class="crm-contact-item"><span class="crm-contact-label">Service address</span><div class="crm-contact-value">${esc(c.service_address||'—')}</div></div>
+        <div class="crm-contact-item crm-requirements-item"><span class="crm-contact-label">Customer Notes &amp; Requirements</span><div class="crm-contact-value crm-contact-notes" title="${esc(c.notes||'')}">${esc(c.notes||'—')}</div></div>
       </div>
       <div class="crm-summary-strip"><div class="crm-summary-item"><strong>${money(revenue)}</strong><span>Revenue</span></div><div class="crm-summary-item"><strong>${money(outstanding)}</strong><span>Open invoices</span></div><div class="crm-summary-item"><strong class="${revenue-cost>=0?'money-positive':'money-negative'}">${money(revenue-cost)}</strong><span>Recorded profit</span></div></div>
       <nav class="crm-detail-tabs" aria-label="Customer detail sections"><button class="crm-detail-tab active" type="button" data-crm-tab="overview">Overview</button><button class="crm-detail-tab" type="button" data-crm-tab="appointments">Appointments</button><button class="crm-detail-tab" type="button" data-crm-tab="projects">Projects</button><button class="crm-detail-tab" type="button" data-crm-tab="activity">Activity</button></nav>
 
       <div class="crm-tab-panel" data-crm-panel="overview">
         <div id="crmEditComposer" class="crm-composer hidden"><div class="crm-composer-title"><h3>Edit customer</h3><button class="crm-icon-button" type="button" data-crm-hide-composer="crmEditComposer">×</button></div><form id="customerEditQuick" class="business-form form-grid">
-          <label>Name / company<input name="display_name" value="${esc(c.display_name||'')}" required></label><label>Stage<select name="customer_type">${option('lead','Lead',c.customer_type)}${option('customer','Customer',c.customer_type)}${option('inactive','Inactive',c.customer_type)}</select></label><label>Primary business line<select name="primary_business_line_id">${lineOptions}</select></label>
+          <label>Name / company<input name="display_name" value="${esc(c.display_name||'')}" required></label><label>EWP/MJM Customer<select name="customer_brand" required>${option('EWPros','EWPros',c.customer_brand)}${option('MJMLight','MJMLight',c.customer_brand)}</select></label><label>Stage<select name="customer_type">${option('prospect','Prospects',c.customer_type)}${option('customer','Customers',c.customer_type)}${option('follow_up','Follow-up',c.customer_type)}${option('inactive','Inactive',c.customer_type)}</select></label><label>Primary business line<select name="primary_business_line_id">${lineOptions}</select></label>
           <label>Company name<input name="company_name" value="${esc(c.company_name||'')}"></label><label>Contact name<input name="contact_name" value="${esc(c.contact_name||'')}"></label><label>Phone<input name="phone" value="${esc(c.phone||'')}"></label><label>Email<input name="email" type="email" value="${esc(c.email||'')}"></label>
           <label class="span-2">Service address<input name="service_address" value="${esc(c.service_address||'')}"></label><label>City<input name="city" value="${esc(c.city||'')}"></label><label>State<input name="state_code" maxlength="2" value="${esc(c.state_code||'')}"></label><label>ZIP<input name="zipcode" value="${esc(c.zipcode||'')}"></label>
-          <label class="span-all">Customer notes<textarea name="notes" rows="3">${esc(c.notes||'')}</textarea></label>
+          <label class="span-all">Customer Notes &amp; Requirements<textarea name="notes" rows="4">${esc(c.notes||'')}</textarea></label>
           <div class="form-actions span-all"><button class="button primary" type="submit">Save changes</button><button class="button warn crm-destructive" type="button" data-delete-customer="${c.id}">Delete / Archive</button></div></form></div>
         <div class="crm-overview-grid">
-          <div class="crm-info-card"><h4>Customer</h4><div class="crm-info-row"><span>Stage</span><strong>${esc(c.customer_type||'—')}</strong></div><div class="crm-info-row"><span>Business line</span><strong>${esc(lineMap.get(c.primary_business_line_id)?.name||'—')}</strong></div><div class="crm-info-row"><span>Source</span><strong>${esc(c.source||'manual')}</strong></div></div>
+          <div class="crm-info-card"><h4>Customer</h4><div class="crm-info-row"><span>Stage</span><strong>${esc(crmStageLabel(c.customer_type))}</strong></div><div class="crm-info-row"><span>EWP/MJM Customer</span><strong>${esc(c.customer_brand||'—')}</strong></div><div class="crm-info-row"><span>Business line</span><strong>${esc(lineMap.get(c.primary_business_line_id)?.name||'—')}</strong></div><div class="crm-info-row"><span>Source</span><strong>${esc(c.source||'manual')}</strong></div></div>
           <div class="crm-info-card"><h4>Next appointment</h4>${upcoming?`<strong>${fmtDate(upcoming.scheduledDate)}</strong><div class="muted-cell">${esc(upcoming.appointment_type||'Appointment')} · ${esc(upcoming.assignedWorker||'Unassigned')}</div>`:'<div class="crm-empty-small">No upcoming appointment.</div>'}</div>
           <div class="crm-info-card"><h4>Open follow-ups</h4>${openReminders.length?`<strong>${openReminders.length}</strong><div class="muted-cell">${esc(openReminders[0].title)}${openReminders[0].due_at?` · ${new Date(openReminders[0].due_at).toLocaleDateString()}`:''}</div>`:'<div class="crm-empty-small">No open reminders.</div>'}</div>
           <div class="crm-info-card"><h4>Projects & invoices</h4><div class="crm-info-row"><span>Projects</span><strong>${customerProjects.length}</strong></div><div class="crm-info-row"><span>Invoices</span><strong>${invoices.length}</strong></div><div class="crm-info-row"><span>Balance due</span><strong>${money(outstanding)}</strong></div></div>
         </div>
-        <div class="crm-section" style="margin-top:12px"><div class="crm-section-head"><h3>Customer notes</h3></div><div class="crm-section-body"><form id="customerNotesQuick" class="business-form"><label>Notes<textarea name="notes" rows="3" placeholder="Add customer notes…">${esc(c.notes||'')}</textarea></label><div class="form-actions"><button class="button secondary" type="submit">Save notes</button></div></form>${latestComment?`<div class="crm-latest-comment"><strong>Latest comment</strong><div>${esc(latestComment.note)}</div><div class="muted-cell">${new Date(latestComment.created_at).toLocaleString()}</div></div>`:'<div class="crm-empty-small">No customer comments yet.</div>'}</div></div>
+        <div class="crm-section crm-latest-only" style="margin-top:12px"><div class="crm-section-head"><h3>Latest Comment</h3></div><div class="crm-section-body">${latestComment?`<div class="crm-latest-comment clean"><div>${esc(latestComment.note)}</div><div class="muted-cell">${new Date(latestComment.created_at).toLocaleString()}</div></div>`:'<div class="crm-empty-small">No customer comments yet.</div>'}</div></div>
       </div>
 
       <div class="crm-tab-panel hidden" data-crm-panel="appointments">
@@ -199,8 +201,10 @@
       </div>
 
       <div class="crm-tab-panel hidden" data-crm-panel="activity">
-        <div class="crm-section"><div class="crm-section-head"><h3>Follow-up reminders</h3></div><div class="crm-section-body"><div class="crm-mini-list">${reminderRows||'<div class="crm-empty-small">No open reminders.</div>'}</div><form id="customerReminderQuick" class="business-form compact-form" style="margin-top:10px"><input name="title" placeholder="Follow-up" required><input name="due_at" type="datetime-local"><button class="button secondary" type="submit">Add reminder</button></form></div></div>
-        <div class="crm-section"><div class="crm-section-head"><h3>Notes</h3></div><div class="crm-section-body"><div class="crm-mini-list">${noteRows||'<div class="crm-empty-small">No notes yet.</div>'}</div><form id="customerNoteQuick" class="quick-entry"><input name="note" placeholder="Add note…" required><button class="button secondary" type="submit">Add</button></form></div></div>
+        <div class="crm-activity-grid">
+          <div class="crm-section"><div class="crm-section-head"><div><h3>Next Action Task</h3><span class="crm-section-subtitle">The earliest unchecked due task appears on the CRM list.</span></div></div><div class="crm-section-body"><form id="customerReminderQuick" class="crm-task-add"><input name="title" placeholder="What needs to happen next?" required><input name="due_at" type="datetime-local" aria-label="Due date"><button class="button primary" type="submit">Add task</button></form><div class="crm-task-list">${reminderRows||'<div class="crm-empty-small">No tasks yet.</div>'}</div></div></div>
+          <div class="crm-section"><div class="crm-section-head"><div><h3>Comments</h3><span class="crm-section-subtitle">A chronological history of conversations, updates and decisions.</span></div></div><div class="crm-section-body"><form id="customerNoteQuick" class="crm-comment-add"><textarea name="note" rows="2" placeholder="Add a comment…" required></textarea><button class="button primary" type="submit">Add comment</button></form><div class="crm-mini-list crm-comments-list">${noteRows||'<div class="crm-empty-small">No comments yet.</div>'}</div></div></div>
+        </div>
         <div class="crm-section"><div class="crm-section-head"><h3>Transaction history</h3></div><div class="crm-section-body crm-drawer-table">${table(['Date','Type','Description','Amount'],transactionRows,'No transactions.')}</div></div>
       </div>
     </div>`;
@@ -218,18 +222,19 @@
     $$('[data-crm-open]').forEach(b=>b.addEventListener('click',()=>showComposer(b.dataset.crmOpen)));
     $$('[data-crm-hide-composer]').forEach(b=>b.addEventListener('click',()=>document.getElementById(b.dataset.crmHideComposer)?.classList.add('hidden')));
     $('#customerEditQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;await action({action:'update_customer',id,patch:formData(form)});toast('Customer updated');await loadLookups(true);await loadCustomers();openCustomer(id);});
-    $('#customerNotesQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'update_customer',id,patch:{notes:d.notes||''}});toast('Customer notes updated');await loadLookups(true);await loadCustomers();openCustomer(id);});
     $('#customerAppointmentQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;await action({action:'create_appointment',customer_id:id,...formData(form)});toast('Appointment scheduled');await loadLookups(true);await loadCustomers();await window.EWPROS_ADMIN_REFRESH?.();openCustomer(id);});
     $('#customerProjectQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;await action({action:'create_project',customer_id:id,service_address:c.service_address||null,...formData(form)});toast('Project created');await loadLookups(true);openCustomer(id);});
     $('#customerNoteQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'add_customer_note',customer_id:id,note:d.note});toast('Comment added');await loadCustomers();openCustomer(id);});
-    $('#customerReminderQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'add_reminder',customer_id:id,title:d.title,due_at:d.due_at||null});toast('Reminder added');await loadCustomers();openCustomer(id);});
+    $('#customerReminderQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'add_reminder',customer_id:id,title:d.title,due_at:d.due_at||null});toast('Next action task added');await loadCustomers();openCustomer(id);});
     $$('[data-cancel-appointment]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Cancel this appointment? It will remain in customer history but will no longer be an active Auditor Wizard visit.',{action:'cancel_appointment',id:b.dataset.cancelAppointment},async()=>{await window.EWPROS_ADMIN_REFRESH?.();await openCustomer(id);},{title:'Cancel appointment',confirmLabel:'Cancel appointment'})));
-    $$('[data-complete-reminder]').forEach(b=>b.addEventListener('click',async()=>{await action({action:'complete_reminder',id:b.dataset.completeReminder});toast('Reminder completed');await loadCustomers();openCustomer(id);}));
+    $$('[data-toggle-reminder]').forEach(box=>box.addEventListener('change',async()=>{await action({action:'toggle_reminder',id:box.dataset.toggleReminder,completed:box.checked});toast(box.checked?'Task completed':'Task reopened');await loadCustomers();openCustomer(id);}));
     $$('[data-edit-note]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.editNote;document.querySelector(`[data-note-display="${id}"]`)?.classList.add('hidden');document.querySelector(`[data-note-edit-form="${id}"]`)?.classList.remove('hidden');}));
     $$('[data-cancel-note-edit]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.cancelNoteEdit;document.querySelector(`[data-note-display="${id}"]`)?.classList.remove('hidden');document.querySelector(`[data-note-edit-form="${id}"]`)?.classList.add('hidden');}));
     $$('[data-note-edit-form]').forEach(form=>form.addEventListener('submit',async e=>{e.preventDefault();const d=formData(form);await action({action:'update_customer_note',id:form.dataset.noteEditForm,note:d.note});toast('Comment updated');await loadCustomers();openCustomer(id);}));
     $$('[data-delete-note]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Delete this customer comment?',{action:'delete_customer_note',id:b.dataset.deleteNote},async()=>{await loadCustomers();await openCustomer(id);})));
     $$('[data-delete-reminder]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Delete this reminder?',{action:'delete_reminder',id:b.dataset.deleteReminder},async()=>{await loadCustomers();await openCustomer(id);})));
+    $('[data-create-proposal]')?.addEventListener('click',()=>window.EWPROS_DOCUMENTS?.openProposal({customer:c,projects:customerProjects,proposals,onSaved:async()=>{await loadCustomers();await openCustomer(id);}}));
+    $('[data-create-invoice]')?.addEventListener('click',()=>{const latest=proposals[0];if(!latest){alert('Create and save a proposal for this customer first.');return;}window.EWPROS_DOCUMENTS?.openInvoice({customer:c,proposal:latest,onSaved:async()=>{await loadCustomers();await openCustomer(id);}});});
     $('[data-delete-customer]')?.addEventListener('click',()=>confirmedAction('Delete this customer if unused? If it has appointments or business history, EWPros will archive it instead.',{action:'delete_customer',id},async()=>{panel.classList.add('hidden');await loadLookups(true);await loadCustomers();}));
   }
 
@@ -249,7 +254,7 @@
   async function readCrmCustomerFile(){
     const form=$('#crmImportForm'), file=$('#crmCustomerFile')?.files?.[0];
     if(!form||!file)throw new Error('Choose a customer CSV file first.');
-    const d=formData(form); if(!d.default_business_line_id)throw new Error('Choose the default business line.');
+    const d=formData(form); if(!d.default_business_line_id)throw new Error('Choose the default business line.'); if(!d.default_customer_brand)throw new Error('Choose the default EWP/MJM Customer.');
     const csvText=await file.text(); if(!csvText.trim())throw new Error('The selected customer file is empty.');
     state.crmFile={csvText,filename:file.name,...d}; return state.crmFile;
   }
@@ -265,7 +270,7 @@
   }
   async function exportCustomers(){
     const data=await get('customer-export');
-    const headers=['display_name','company_name','contact_name','phone','email','service_address','city','state_code','zipcode','business_line','customer_type','source','notes','active'];
+    const headers=['display_name','company_name','contact_name','phone','email','service_address','city','state_code','zipcode','business_line','customer_type','customer_brand','source','notes','active'];
     downloadCsv(`EWPros_Customers_${new Date().toISOString().slice(0,10)}.csv`,headers,data.customers||[]); toast('Customer CSV exported');
   }
 
@@ -394,9 +399,15 @@
     $('#reportYearly').innerHTML=table(['Year','Revenue','Expense','Net'],(d.yearly||[]).map(r=>`<tr><td>${esc(r.month)}</td><td>${money(r.revenue)}</td><td>${money(r.expense)}</td><td>${money(r.profit)}</td></tr>`),'No yearly activity in this period.');
   }
 
+  async function loadAppNotes(){
+    const data=await get('app-notes'); state.appNotes=data.note||{};
+    const editor=$('#appNotesEditor'); if(editor)editor.value=state.appNotes.content||'';
+    const statusEl=$('#appNotesStatus'); if(statusEl)statusEl.textContent=state.appNotes.updated_at?`Last saved ${new Date(state.appNotes.updated_at).toLocaleString()}`:'Not saved yet';
+  }
+
   async function activate(view){
     if(view!=='crm'){ $('#crmDetailPanel')?.classList.add('hidden'); $('#crmCustomerModal')?.classList.add('hidden'); $('#crmImportModal')?.classList.add('hidden'); }
-    if(!['business-dashboard','crm','projects','banking','accounting','team','mileage','reports'].includes(view))return;
+    if(!['business-dashboard','crm','projects','banking','accounting','team','mileage','reports','notes'].includes(view))return;
     try{
       await loadLookups();
       if(view==='business-dashboard')await loadDashboard();
@@ -407,6 +418,7 @@
       else if(view==='team')await loadTeam();
       else if(view==='mileage')await loadMileage();
       else if(view==='reports')await loadReports();
+      else if(view==='notes')await loadAppNotes();
     }catch(error){console.error(error);setupError(error);}
   }
 
@@ -425,6 +437,7 @@
   $('#crmConfirmImport')?.addEventListener('click',async()=>{try{if(!state.crmImportPreview)await previewCrmImport();const ok=await askConfirmation({title:'Import customers',message:'Import the previewed customer file into the CRM master list?',confirmLabel:'Import customers',danger:false});if(ok)await confirmCrmImport();}catch(err){alert(err.message);}});
   $('#crmExportCustomers')?.addEventListener('click',()=>exportCustomers().catch(err=>alert(err.message)));
   $('#customerForm')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;try{await action({action:'create_customer',...formData(form)});form.reset();closeCrmModal('crmCustomerModal');toast('Customer saved');await loadLookups(true);await loadCustomers();}catch(err){alert(err.message);}});
+  $('#saveAppNotes')?.addEventListener('click',async()=>{try{const content=$('#appNotesEditor')?.value||'';const result=await action({action:'save_app_notes',content});state.appNotes=result.data;toast('Notes saved');await loadAppNotes();}catch(err){alert(err.message);}});
   $('#projectForm')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;try{await action({action:'create_project',...formData(form)});form.reset();toast('Project created');await loadLookups(true);await loadProjects();}catch(err){alert(err.message);}});
   $('#bankAccountForm')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;try{await action({action:'create_account',...formData(form)});form.reset();toast('Account added');await loadLookups(true);await loadBanking();}catch(err){alert(err.message);}});
   $('#ruleForm')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;try{const d=formData(form);if(state.editingRuleId){await action({action:'update_rule',id:state.editingRuleId,patch:d});state.editingRuleId=null;form.querySelector('button[type="submit"]').textContent='Add rule';toast('Rule saved');}else{await action({action:'create_rule',...d});toast('Rule added');}form.reset();await loadBanking();}catch(err){alert(err.message);}});

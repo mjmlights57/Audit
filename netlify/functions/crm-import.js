@@ -5,7 +5,7 @@ const { customerMatch, parseCustomerCsv, mergePatch } = require('./_crm-csv');
 async function buildPlan(supabase, csvText, defaults) {
   const [businessLines, existing] = await Promise.all([
     fetchAll(supabase,'business_lines','id,code,name,active',q=>q.eq('active',true).order('name')),
-    fetchAll(supabase,'customers','id,display_name,company_name,contact_name,phone,email,service_address,city,state_code,zipcode,customer_type,primary_business_line_id,notes,active',q=>q.order('updated_at',{ascending:false}))
+    fetchAll(supabase,'customers','id,display_name,company_name,contact_name,phone,email,service_address,city,state_code,zipcode,customer_type,customer_brand,primary_business_line_id,notes,active',q=>q.order('updated_at',{ascending:false}))
   ]);
   const parsed = parseCustomerCsv(csvText, defaults, businessLines);
   const valid=[], invalid=[], duplicates=[];
@@ -25,9 +25,10 @@ exports.handler = async event => {
   const csvText=String(body.csvText||'').trim();
   if(!csvText)return json(400,{error:'Choose a customer CSV file first.'});
   if(!body.default_business_line_id)return json(400,{error:'Choose the default business line for the import.'});
+  if(!body.default_customer_brand)return json(400,{error:'Choose the default EWP/MJM Customer for the import.'});
   try{
     const supabase=getSupabaseAdmin();
-    const plan=await buildPlan(supabase,csvText,{default_business_line_id:body.default_business_line_id,default_customer_type:body.default_customer_type||'customer'});
+    const plan=await buildPlan(supabase,csvText,{default_business_line_id:body.default_business_line_id,default_customer_type:body.default_customer_type||'customer',default_customer_brand:body.default_customer_brand});
     const summary={totalRows:plan.valid.length+plan.invalid.length+plan.duplicates.length,newRows:plan.valid.length,duplicateRows:plan.duplicates.length,errorRows:plan.invalid.length,updateRows:body.update_existing?plan.duplicates.filter(d=>!d.existing._preview&&Object.keys(d.patch).length).length:0};
     const changes=[
       ...plan.valid.slice(0,50).map(i=>({row:i.rowNumber,action:'new',customer:i.customer.display_name,email:i.customer.email,phone:i.customer.phone,address:i.customer.service_address})),

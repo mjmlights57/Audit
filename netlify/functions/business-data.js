@@ -9,7 +9,7 @@ async function baseLookups(supabase) {
     fetchAll(supabase, 'business_lines', 'id,code,name,active', q => q.eq('active', true).order('name')),
     fetchAll(supabase, 'transaction_categories', 'id,name,behavior,ledger_account_id,active', q => q.eq('active', true).order('name')),
     fetchAll(supabase, 'financial_accounts', 'id,name,institution,account_type,last4,ledger_account_id,opening_balance,opening_balance_date,active', q => q.eq('active', true).order('name')),
-    fetchAll(supabase, 'customers', 'id,legacy_appointment_id,external_key,customer_type,primary_business_line_id,display_name,company_name,contact_name,phone,email,service_address,mailing_address,city,state_code,zipcode,tags,source,notes,active,created_at,updated_at', q => q.eq('active', true).order('display_name')),
+    fetchAll(supabase, 'customers', 'id,legacy_appointment_id,external_key,customer_type,customer_brand,primary_business_line_id,display_name,company_name,contact_name,phone,email,service_address,mailing_address,city,state_code,zipcode,tags,source,notes,active,created_at,updated_at', q => q.eq('active', true).order('display_name')),
     fetchAll(supabase, 'projects', 'id,customer_id,business_line_id,project_number,name,project_type,status,start_date,end_date,service_address,quoted_amount,external_key,legacy_appointment_id,updated_at', q => q.neq('status', 'archived').order('updated_at', { ascending: false })),
     fetchAll(supabase, 'workers', 'id,worker_type,first_name,last_name,email,phone,pay_type,pay_rate,overtime_rate,active', q => q.eq('active', true).order('last_name')),
     fetchAll(supabase, 'vendors', 'id,name,phone,email,active', q => q.eq('active', true).order('name'))
@@ -102,13 +102,14 @@ async function customersView(supabase, lookups, customerId) {
   const customer = lookups.customers.find(c => c.id === customerId);
   if (!customer) throw new Error('Customer not found.');
   const appointmentSelect = 'id,source_system,external_task_id,appointment_number,customer_id,project_id,business_line_id,assigned_worker_id,appointment_type,appointment_notes,customer_name,customer_phone,customer_email,service_address,scheduled_start,scheduled_end,timezone,appointment_status,source_active,auditor_visible,crm_created,source_payload,created_at,updated_at';
-  const [projects, invoices, transactions, notes, reminders, appointments] = await Promise.all([
+  const [projects, invoices, transactions, notes, reminders, appointments, proposals] = await Promise.all([
     fetchAll(supabase, 'projects', '*', q => q.eq('customer_id', customerId).order('updated_at', { ascending: false })),
     fetchAll(supabase, 'invoices', '*', q => q.eq('customer_id', customerId).order('invoice_date', { ascending: false })),
     fetchAll(supabase, 'financial_transactions', '*', q => q.eq('customer_id', customerId).is('voided_at', null).order('transaction_date', { ascending: false })),
     fetchAll(supabase, 'customer_notes', '*', q => q.eq('customer_id', customerId).order('created_at', { ascending: false })),
     fetchAll(supabase, 'reminders', '*', q => q.eq('customer_id', customerId).order('due_at', { ascending: true, nullsFirst: false })),
-    fetchAll(supabase, 'appointments', appointmentSelect, q => q.eq('customer_id', customerId).order('scheduled_start', { ascending: false, nullsFirst: false }))
+    fetchAll(supabase, 'appointments', appointmentSelect, q => q.eq('customer_id', customerId).order('scheduled_start', { ascending: false, nullsFirst: false })),
+    fetchAll(supabase, 'proposals', '*', q => q.eq('customer_id', customerId).neq('status','void').order('proposal_date', { ascending: false }).order('created_at', { ascending: false }))
   ]);
   const workerMap = new Map(lookups.workers.map(w => [w.id, `${w.first_name} ${w.last_name}`.trim()]));
   const appointmentRows = appointments.map(a => ({
@@ -120,11 +121,11 @@ async function customersView(supabase, lookups, customerId) {
     utility: a.source_payload?.utility || a.source_payload?.utility_raw || '',
     crmStatus: a.source_payload?.crm_status || (a.appointment_status === 'cancelled' ? 'cancelled' : 'scheduled')
   }));
-  return { customer, projects: joinBusinessLine(projects, lookups.businessLines), invoices, transactions, notes, reminders, appointments: appointmentRows };
+  return { customer, projects: joinBusinessLine(projects, lookups.businessLines), invoices, transactions, notes, reminders, appointments: appointmentRows, proposals };
 }
 
 async function customerExportView(supabase) {
-  const customers = await fetchAll(supabase, 'customers', 'id,customer_type,primary_business_line_id,display_name,company_name,contact_name,phone,email,service_address,mailing_address,city,state_code,zipcode,source,tags,notes,active,created_at,updated_at', q => q.order('display_name'));
+  const customers = await fetchAll(supabase, 'customers', 'id,customer_type,customer_brand,primary_business_line_id,display_name,company_name,contact_name,phone,email,service_address,mailing_address,city,state_code,zipcode,source,tags,notes,active,created_at,updated_at', q => q.order('display_name'));
   const lines = await fetchAll(supabase, 'business_lines', 'id,code,name', q => q.order('name'));
   const lineMap = new Map(lines.map(l => [l.id,l.name]));
   return { customers: customers.map(c => ({ ...c, business_line: lineMap.get(c.primary_business_line_id) || '' })) };
@@ -180,6 +181,12 @@ async function teamView(supabase, lookups) {
 async function mileageView(supabase, lookups) {
   const trips = await fetchAll(supabase, 'mileage_trips', '*', q => q.order('trip_date', { ascending: false }).limit(500));
   return { trips, workers: lookups.workers, customers: lookups.customers, projects: lookups.projects, businessLines: lookups.businessLines };
+}
+
+async function appNotesView(supabase) {
+  const {data,error}=await supabase.from('app_notes').select('note_key,content,updated_at').eq('note_key','usage_guide').maybeSingle();
+  if(error)throw error;
+  return { note:data || {note_key:'usage_guide',content:'',updated_at:null} };
 }
 
 async function reportsView(supabase, lookups, params) {
@@ -344,6 +351,7 @@ exports.handler = async event => {
     else if (view === 'team') data = await teamView(supabase, lookups);
     else if (view === 'mileage') data = await mileageView(supabase, lookups);
     else if (view === 'reports') data = await reportsView(supabase, lookups, params);
+    else if (view === 'app-notes') data = await appNotesView(supabase);
     else if (view === 'lookups') data = lookups;
     else return json(400, { error: `Unknown business view: ${view}` });
     return json(200, { ok:true, setupRequired:false, ...data });
