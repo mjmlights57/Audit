@@ -9,8 +9,8 @@ async function baseLookups(supabase) {
     fetchAll(supabase, 'business_lines', 'id,code,name,active', q => q.eq('active', true).order('name')),
     fetchAll(supabase, 'transaction_categories', 'id,name,behavior,ledger_account_id,active', q => q.eq('active', true).order('name')),
     fetchAll(supabase, 'financial_accounts', 'id,name,institution,account_type,last4,ledger_account_id,opening_balance,opening_balance_date,active', q => q.eq('active', true).order('name')),
-    fetchAll(supabase, 'customers', 'id,legacy_appointment_id,external_key,customer_type,customer_brand,primary_business_line_id,display_name,company_name,contact_name,phone,email,service_address,mailing_address,city,state_code,zipcode,tags,source,notes,active,created_at,updated_at', q => q.eq('active', true).order('display_name')),
-    fetchAll(supabase, 'projects', 'id,customer_id,business_line_id,project_number,name,project_type,status,start_date,end_date,service_address,quoted_amount,external_key,legacy_appointment_id,updated_at', q => q.neq('status', 'archived').order('updated_at', { ascending: false })),
+    fetchAll(supabase, 'customers', 'id,legacy_appointment_id,external_key,customer_type,customer_brand,primary_business_line_id,display_name,company_name,contact_name,phone,email,service_address,mailing_address,city,state_code,zipcode,utility,utility_account_number,business_type,tags,source,notes,active,created_at,updated_at', q => q.eq('active', true).order('display_name')),
+    fetchAll(supabase, 'projects', 'id,customer_id,business_line_id,project_number,name,project_type,status,start_date,end_date,service_address,quoted_amount,external_key,legacy_appointment_id,updated_at', q => q.neq('status', 'archived').order('end_date', { ascending: true, nullsFirst: false }).order('name')),
     fetchAll(supabase, 'workers', 'id,worker_type,first_name,last_name,email,phone,pay_type,pay_rate,overtime_rate,active', q => q.eq('active', true).order('last_name')),
     fetchAll(supabase, 'vendors', 'id,name,phone,email,active', q => q.eq('active', true).order('name'))
   ]);
@@ -82,12 +82,18 @@ async function dashboard(supabase, lookups) {
 async function customersView(supabase, lookups, customerId) {
   if (!customerId) {
     const [reminders, customerNotes] = await Promise.all([
-      fetchAll(supabase, 'reminders', 'id,customer_id,title,due_at,status', q => q.eq('status', 'open').order('due_at', { ascending: true, nullsFirst: false })),
+      fetchAll(supabase, 'reminders', 'id,customer_id,title,due_at,status,assigned_worker_id', q => q.eq('status', 'open').order('due_at', { ascending: true, nullsFirst: false })),
       fetchAll(supabase, 'customer_notes', 'id,customer_id,note,created_at', q => q.order('created_at', { ascending: false }))
     ]);
     const nextByCustomer = new Map();
+    const assigneesByCustomer = new Map();
+    const workerMap = new Map(lookups.workers.map(w => [w.id, `${w.first_name} ${w.last_name}`.trim()]));
     for (const reminder of reminders) {
       if (reminder.customer_id && !nextByCustomer.has(reminder.customer_id)) nextByCustomer.set(reminder.customer_id, reminder);
+      if (reminder.customer_id && reminder.assigned_worker_id) {
+        if (!assigneesByCustomer.has(reminder.customer_id)) assigneesByCustomer.set(reminder.customer_id, new Set());
+        assigneesByCustomer.get(reminder.customer_id).add(reminder.assigned_worker_id);
+      }
     }
     const latestNoteByCustomer = new Map();
     for (const note of customerNotes) {
@@ -96,20 +102,21 @@ async function customersView(supabase, lookups, customerId) {
     return { customers: lookups.customers.map(customer => {
       const next = nextByCustomer.get(customer.id);
       const latest = latestNoteByCustomer.get(customer.id);
-      return { ...customer, next_action: next?.title || '', due_date: next?.due_at || null, latest_comment: latest?.note || '', latest_comment_at: latest?.created_at || null };
+      return { ...customer, next_action: next?.title || '', due_date: next?.due_at || null, next_action_assigned_worker_id: next?.assigned_worker_id || null, next_action_assigned_to: next?.assigned_worker_id ? (workerMap.get(next.assigned_worker_id) || 'Assigned') : '', open_assignee_ids: [...(assigneesByCustomer.get(customer.id) || [])], latest_comment: latest?.note || '', latest_comment_at: latest?.created_at || null };
     }) };
   }
   const customer = lookups.customers.find(c => c.id === customerId);
   if (!customer) throw new Error('Customer not found.');
   const appointmentSelect = 'id,source_system,external_task_id,appointment_number,customer_id,project_id,business_line_id,assigned_worker_id,appointment_type,appointment_notes,customer_name,customer_phone,customer_email,service_address,scheduled_start,scheduled_end,timezone,appointment_status,source_active,auditor_visible,crm_created,source_payload,created_at,updated_at';
-  const [projects, invoices, transactions, notes, reminders, appointments, proposals] = await Promise.all([
-    fetchAll(supabase, 'projects', '*', q => q.eq('customer_id', customerId).order('updated_at', { ascending: false })),
+  const [projects, invoices, transactions, notes, reminders, appointments, proposals, documents] = await Promise.all([
+    fetchAll(supabase, 'projects', '*', q => q.eq('customer_id', customerId).order('end_date', { ascending: true, nullsFirst: false }).order('name')),
     fetchAll(supabase, 'invoices', '*', q => q.eq('customer_id', customerId).order('invoice_date', { ascending: false })),
     fetchAll(supabase, 'financial_transactions', '*', q => q.eq('customer_id', customerId).is('voided_at', null).order('transaction_date', { ascending: false })),
     fetchAll(supabase, 'customer_notes', '*', q => q.eq('customer_id', customerId).order('created_at', { ascending: false })),
     fetchAll(supabase, 'reminders', '*', q => q.eq('customer_id', customerId).order('due_at', { ascending: true, nullsFirst: false })),
     fetchAll(supabase, 'appointments', appointmentSelect, q => q.eq('customer_id', customerId).order('scheduled_start', { ascending: false, nullsFirst: false })),
-    fetchAll(supabase, 'proposals', '*', q => q.eq('customer_id', customerId).neq('status','void').order('proposal_date', { ascending: false }).order('created_at', { ascending: false }))
+    fetchAll(supabase, 'proposals', '*', q => q.eq('customer_id', customerId).neq('status','void').order('proposal_date', { ascending: false }).order('created_at', { ascending: false })),
+    fetchAll(supabase, 'customer_documents', '*', q => q.eq('customer_id', customerId).order('created_at', { ascending: false }))
   ]);
   const workerMap = new Map(lookups.workers.map(w => [w.id, `${w.first_name} ${w.last_name}`.trim()]));
   const appointmentRows = appointments.map(a => ({
@@ -121,11 +128,12 @@ async function customersView(supabase, lookups, customerId) {
     utility: a.source_payload?.utility || a.source_payload?.utility_raw || '',
     crmStatus: a.source_payload?.crm_status || (a.appointment_status === 'cancelled' ? 'cancelled' : 'scheduled')
   }));
-  return { customer, projects: joinBusinessLine(projects, lookups.businessLines), invoices, transactions, notes, reminders, appointments: appointmentRows, proposals };
+  const reminderRows = reminders.map(r => ({...r, assignedTo: workerMap.get(r.assigned_worker_id) || ''}));
+  return { customer, projects: joinBusinessLine(projects, lookups.businessLines), invoices, transactions, notes, reminders: reminderRows, appointments: appointmentRows, proposals, documents };
 }
 
 async function customerExportView(supabase) {
-  const customers = await fetchAll(supabase, 'customers', 'id,customer_type,customer_brand,primary_business_line_id,display_name,company_name,contact_name,phone,email,service_address,mailing_address,city,state_code,zipcode,source,tags,notes,active,created_at,updated_at', q => q.order('display_name'));
+  const customers = await fetchAll(supabase, 'customers', 'id,customer_type,customer_brand,primary_business_line_id,display_name,company_name,contact_name,phone,email,service_address,mailing_address,city,state_code,zipcode,utility,utility_account_number,business_type,source,tags,notes,active,created_at,updated_at', q => q.order('display_name'));
   const lines = await fetchAll(supabase, 'business_lines', 'id,code,name', q => q.order('name'));
   const lineMap = new Map(lines.map(l => [l.id,l.name]));
   return { customers: customers.map(c => ({ ...c, business_line: lineMap.get(c.primary_business_line_id) || '' })) };
@@ -357,8 +365,12 @@ exports.handler = async event => {
     return json(200, { ok:true, setupRequired:false, ...data });
   } catch (error) {
     console.error('[business-data]', error);
+    const message=String(error?.message||'');
+    if (/customer_documents|assigned_worker_id|utility_account_number|business_type|customers\.utility/i.test(message)) {
+      return json(409,{error:'EWPros v3.2.1 database update is required for CRM utility fields, assigned tasks, and document links.',setupRequired:true,setupFile:'EWPROS-V3.2.1-MIGRATION.sql'});
+    }
     if (isMissingBusinessSchema(error)) {
-      return json(409, { error: 'Business modules are ready, but the Supabase v3.0 schema has not been installed yet. Run EWPROS-BUSINESS-SYSTEM-SCHEMA.sql in Supabase SQL Editor.', setupRequired:true });
+      return json(409, { error: 'Business modules are ready, but the Supabase v3.0 schema has not been installed yet.', setupRequired:true, setupFile:'EWPROS-BUSINESS-SYSTEM-SCHEMA.sql' });
     }
     return json(500, { error: error.message || 'Unable to load EWPros business data.' });
   }

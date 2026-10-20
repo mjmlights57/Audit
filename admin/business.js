@@ -15,7 +15,7 @@
     const password = sessionStorage.getItem('ewpros_admin_password') || '';
     const response = await fetch(path,{...options,headers:{'X-Admin-Password':password,'Cache-Control':'no-cache','Content-Type':'application/json',...(options.headers||{})}});
     let body={}; try{body=await response.json();}catch{}
-    if(!response.ok){const error=new Error(body.error||`Request failed (${response.status}).`);error.status=response.status;error.setupRequired=body.setupRequired;throw error;}
+    if(!response.ok){const error=new Error(body.error||`Request failed (${response.status}).`);error.status=response.status;error.setupRequired=body.setupRequired;error.setupFile=body.setupFile;throw error;}
     return body;
   }
   const get = view => api(`/.netlify/functions/business-data?view=${encodeURIComponent(view)}`);
@@ -23,7 +23,8 @@
   function toast(message){const el=$('#toast');if(!el)return;el.textContent=message;el.classList.remove('hidden');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add('hidden'),2600);}
   function setupError(error){
     const el=$('#businessSetupNotice'); if(!el)return;
-    el.innerHTML=`<strong>Business database setup needed.</strong> ${esc(error.message)} <div style="margin-top:7px">Run <code>EWPROS-BUSINESS-SYSTEM-SCHEMA.sql</code> once in Supabase SQL Editor.</div>`;
+    const setupFile=error.setupFile||'EWPROS-BUSINESS-SYSTEM-SCHEMA.sql';
+    el.innerHTML=`<strong>Business database setup needed.</strong> ${esc(error.message)} <div style="margin-top:7px">Run <code>${esc(setupFile)}</code> in Supabase SQL Editor.</div>`;
     el.className='setup-card';
   }
   function clearSetup(){const el=$('#businessSetupNotice');if(el){el.className='alert hidden';el.textContent='';}}
@@ -40,6 +41,22 @@
     const first = preserveBlank && select.querySelector('option[value=""]') ? select.querySelector('option[value=""]').outerHTML : '';
     select.innerHTML = first + rows.map(row=>option(row.id,labelFn(row),current)).join('');
   }
+  function isUtilityBusinessLine(id){
+    const line=(state.lookups?.businessLines||[]).find(item=>String(item.id)===String(id));
+    return line?.code==='utility_programs'||String(line?.name||'').toLowerCase()==='utility programs';
+  }
+  function syncUtilityCustomerFields(form){
+    if(!form)return;
+    const lineId=form.elements?.primary_business_line_id?.value||'';
+    const group=form.querySelector('[data-utility-customer-fields]');
+    if(group)group.classList.toggle('hidden',!isUtilityBusinessLine(lineId));
+  }
+  function populateCrmAssignedFilter(){
+    const select=$('#crmAssignedFilter'); if(!select||!state.lookups)return;
+    const current=select.value;
+    select.innerHTML='<option value="">Assigned To: All</option>'+(state.lookups.workers||[]).map(w=>option(w.id,`${w.first_name} ${w.last_name}`,current)).join('');
+    if(current&&[...select.options].some(o=>o.value===current))select.value=current;
+  }
   function populateLookups(){
     if(!state.lookups)return;
     $$('[data-business-options="business-lines"]').forEach(s=>fillSelect(s,state.lookups.businessLines,r=>r.name,true));
@@ -53,6 +70,8 @@
     fillSelect($('#bankImportBusinessLine'),state.lookups.businessLines,r=>r.name,true);
     fillSelect($('#reportBusinessLine'),state.lookups.businessLines,r=>r.name,true);
     fillSelect($('#crmLineFilter'),state.lookups.businessLines,r=>r.name,true);
+    populateCrmAssignedFilter();
+    syncUtilityCustomerFields($('#customerForm'));
     fillSelect($('#timeWorker'),state.lookups.workers,r=>`${r.first_name} ${r.last_name}`,false);
     fillSelect($('#timeProject'),state.lookups.projects,r=>r.name,true);
     fillSelect($('#timeBusinessLine'),state.lookups.businessLines,r=>r.name,false);
@@ -111,27 +130,35 @@
     const q=($('#crmSearch')?.value||'').toLowerCase().trim();
     const stage=$('#crmStageFilter')?.value||'all';
     const line=$('#crmLineFilter')?.value||'';
+    const assigned=$('#crmAssignedFilter')?.value||'';
     const allRows=state.customers?.customers||[];
-    const rows=allRows.filter(c=>{
-      const search=!q||[c.display_name,c.company_name,c.contact_name,c.phone,c.email,c.latest_comment,c.notes,c.next_action,c.service_address,c.city,c.state_code,c.zipcode].join(' ').toLowerCase().includes(q);
-      return search&&(stage==='all'||c.customer_type===stage)&&(!line||c.primary_business_line_id===line);
+    const stageUniverse=stage==='inactive'?allRows.filter(c=>c.customer_type==='inactive'):stage==='all'?allRows.filter(c=>c.customer_type!=='inactive'):allRows.filter(c=>c.customer_type===stage);
+    const rows=stageUniverse.filter(c=>{
+      const search=!q||[c.display_name,c.company_name,c.contact_name,c.phone,c.email,c.latest_comment,c.notes,c.next_action,c.service_address,c.city,c.state_code,c.zipcode,c.utility,c.utility_account_number,c.business_type].join(' ').toLowerCase().includes(q);
+      const assigneeMatch=!assigned||(c.open_assignee_ids||[]).includes(assigned);
+      return search&&(!line||c.primary_business_line_id===line)&&assigneeMatch;
+    }).sort((a,b)=>{
+      const ad=a.due_date?new Date(a.due_date).getTime():Number.POSITIVE_INFINITY;
+      const bd=b.due_date?new Date(b.due_date).getTime():Number.POSITIVE_INFINITY;
+      return ad-bd||String(a.display_name||'').localeCompare(String(b.display_name||''));
     });
     const lineMap=mapBy(state.lookups?.businessLines||[]);
-    const count=$('#crmListCount'); if(count)count.textContent=`${rows.length} of ${allRows.length}`;
-    $('#crmCustomerTable').innerHTML=table(['Customer','Stage','Next Action','Due Date','Business line','Contact','Notes',''],rows.map(c=>{
+    const count=$('#crmListCount'); if(count)count.textContent=`${rows.length} of ${stageUniverse.length}`;
+    $('#crmCustomerTable').innerHTML=table(['Customer','Stage','Next Action','Due Date','Business line','Title','Notes',''],rows.map(c=>{
       const initial=esc((c.display_name||'?').trim().slice(0,1).toUpperCase());
-      const contactPrimary=c.contact_name||c.phone||c.email||'—';
-      const contactSecondary=c.contact_name?(c.phone||c.email||''):c.phone?(c.email||''):'';
+      const titlePrimary=c.contact_name||'—';
+      const titleSecondary=c.phone||c.email||'';
       const notes=(c.latest_comment||c.notes||'').trim();
       const noteTitle=c.latest_comment_at?`${notes} · ${new Date(c.latest_comment_at).toLocaleString()}`:notes;
-      return `<tr class="customer-row" data-customer-id="${c.id}"><td><div class="crm-name-cell"><span class="crm-avatar">${initial}</span><span class="crm-name-text"><strong>${esc(c.display_name)}</strong>${c.company_name&&c.company_name!==c.display_name?`<span class="muted-cell">${esc(c.company_name)}</span>`:''}</span></div></td><td>${status(crmStageLabel(c.customer_type))}</td><td>${esc(c.next_action||'—')}</td><td>${c.due_date?fmtDate(c.due_date):'—'}</td><td>${esc(lineMap.get(c.primary_business_line_id)?.name||'—')}</td><td><div class="crm-contact-line">${esc(contactPrimary)}${contactSecondary?`<div class="muted-cell">${esc(contactSecondary)}</div>`:''}</div></td><td><div class="crm-notes-cell" title="${esc(noteTitle)}">${esc(notes||'—')}</div></td><td class="crm-chevron">›</td></tr>`;
+      const nextAction=c.next_action?`<div>${esc(c.next_action)}</div>${c.next_action_assigned_to?`<div class="muted-cell">Assigned to ${esc(c.next_action_assigned_to)}</div>`:''}`:'—';
+      return `<tr class="customer-row" data-customer-id="${c.id}"><td><div class="crm-name-cell"><span class="crm-avatar">${initial}</span><span class="crm-name-text"><strong>${esc(c.display_name)}</strong>${c.company_name&&c.company_name!==c.display_name?`<span class="muted-cell">${esc(c.company_name)}</span>`:''}</span></div></td><td>${status(crmStageLabel(c.customer_type))}</td><td>${nextAction}</td><td>${c.due_date?fmtDate(c.due_date):'—'}</td><td>${esc(lineMap.get(c.primary_business_line_id)?.name||'—')}</td><td><div class="crm-contact-line">${esc(titlePrimary)}${titleSecondary?`<div class="muted-cell">${esc(titleSecondary)}</div>`:''}</div></td><td><div class="crm-notes-cell" title="${esc(noteTitle)}">${esc(notes||'—')}</div></td><td class="crm-chevron">›</td></tr>`;
     }),'No customers match this view.');
     $$('.customer-row').forEach(row=>row.addEventListener('click',()=>openCustomer(row.dataset.customerId)));
   }
   async function loadCustomers(){state.customers=await get('customers');renderCustomerList();}
   async function openCustomer(id){
     const data=await api(`/.netlify/functions/business-data?view=customers&id=${encodeURIComponent(id)}`); const c=data.customer;
-    const transactions=data.transactions||[], invoices=data.invoices||[], notes=data.notes||[], reminders=data.reminders||[], appointments=data.appointments||[], proposals=data.proposals||[];
+    const transactions=data.transactions||[], invoices=data.invoices||[], notes=data.notes||[], reminders=data.reminders||[], appointments=data.appointments||[], proposals=data.proposals||[], documents=data.documents||[];
     const revenue=transactions.filter(t=>['income','customer_payment'].includes(t.transaction_type)&&!t.personal).reduce((a,t)=>a+num(t.amount),0);
     const cost=transactions.filter(t=>['expense','vendor_payment'].includes(t.transaction_type)&&!t.personal).reduce((a,t)=>a+num(t.amount),0);
     const outstanding=invoices.reduce((a,i)=>a+num(i.balance_due),0);
@@ -150,9 +177,15 @@
     const appointmentRows=appointments.map(a=>`<tr><td>${fmtDate(a.scheduledDate)}</td><td><strong>${esc(a.appointment_type||a.source_payload?.appointment_type||'Appointment')}</strong><div class="muted-cell">${esc(a.scheduledTime||'Time not set')}${a.endTime?` – ${esc(a.endTime)}`:''}</div></td><td>${esc(a.assignedWorker||'Unassigned')}</td><td>${status(a.crmStatus||a.appointment_status)}</td><td><span class="crm-source-pill">${esc(a.source_system==='crm'?'CRM':'Legacy')}</span></td><td>${a.appointment_status!=='cancelled'&&a.source_active?`<button class="button micro warn" data-cancel-appointment="${a.id}">Cancel</button>`:'—'}</td></tr>`);
     const projectRows=customerProjects.map(p=>`<div class="crm-mini-item"><strong>${esc(p.name)}</strong><div class="muted-cell">${esc(p.businessLine||'')} · ${esc(p.status)}${p.end_date?` · due ${fmtDate(p.end_date)}`:''}${p.project_number?` · ${esc(p.project_number)}`:''}</div></div>`).join('');
     const invoiceRows=invoices.slice(0,6).map(i=>`<div class="crm-mini-item"><strong>${esc(i.invoice_number)}</strong> <span class="muted-cell">${fmtDate(i.invoice_date)}</span><div class="muted-cell">${money(i.total)} · ${esc(i.status)} · balance ${money(i.balance_due)}</div></div>`).join('');
-    const reminderRows=reminders.slice(0,12).map(r=>`<div class="crm-task-row ${r.status==='completed'?'task-done':''}"><label class="crm-task-check"><input type="checkbox" data-toggle-reminder="${r.id}" ${r.status==='completed'?'checked':''}><span></span></label><div class="crm-task-content"><strong>${esc(r.title)}</strong><div class="muted-cell">${r.due_at?new Date(r.due_at).toLocaleString():'No due date'}</div></div><button class="button micro ghost-warn" type="button" data-delete-reminder="${r.id}">Delete</button></div>`).join('');
+    const orderedReminders=reminders.slice().sort((a,b)=>{
+      if(a.status!==b.status)return a.status==='open'?-1:b.status==='open'?1:0;
+      const ad=a.due_at?new Date(a.due_at).getTime():Number.POSITIVE_INFINITY, bd=b.due_at?new Date(b.due_at).getTime():Number.POSITIVE_INFINITY;
+      return ad-bd;
+    });
+    const reminderRows=orderedReminders.slice(0,16).map(r=>`<div class="crm-task-row ${r.status==='completed'?'task-done':''}"><label class="crm-task-check"><input type="checkbox" data-toggle-reminder="${r.id}" ${r.status==='completed'?'checked':''}><span></span></label><div class="crm-task-content"><strong>${esc(r.title)}</strong><div class="muted-cell">${r.due_at?new Date(r.due_at).toLocaleString():'No due date'}</div><div class="crm-task-assignee"><span>Assigned to</span><select data-task-assignee="${r.id}" aria-label="Assigned to">${option('','Unassigned',r.assigned_worker_id||'')}${workers.map(w=>option(w.id,`${w.first_name} ${w.last_name}`,r.assigned_worker_id||'')).join('')}</select></div></div><button class="button micro ghost-warn" type="button" data-delete-reminder="${r.id}">Delete</button></div>`).join('');
     const latestComment=notes[0]||null;
     const noteRows=notes.slice(0,8).map(n=>`<div class="crm-mini-item" data-note-item="${n.id}"><div data-note-display="${n.id}">${esc(n.note)}</div><div class="muted-cell">${new Date(n.created_at).toLocaleString()}</div><div class="inline-actions" style="margin-top:6px"><button class="button micro secondary" type="button" data-edit-note="${n.id}">Edit</button><button class="button micro warn" type="button" data-delete-note="${n.id}">Delete</button></div><form class="quick-entry hidden" data-note-edit-form="${n.id}" style="margin-top:8px"><input name="note" value="${esc(n.note)}" required><button class="button micro primary" type="submit">Save</button><button class="button micro secondary" type="button" data-cancel-note-edit="${n.id}">Cancel</button></form></div>`).join('');
+    const documentRows=documents.map(d=>`<div class="crm-document-row"><div><strong>${esc(d.title)}</strong><div class="muted-cell">${esc(d.provider||'Other')}${d.notes?` · ${esc(d.notes)}`:''} · ${new Date(d.created_at).toLocaleDateString()}</div></div><div class="inline-actions"><a class="button micro secondary button-link" href="${esc(d.document_url)}" target="_blank" rel="noopener noreferrer">Open</a><button class="button micro warn" type="button" data-delete-document="${d.id}">Remove</button></div></div>`).join('');
     const transactionRows=transactions.slice(0,50).map(t=>`<tr><td>${fmtDate(t.transaction_date)}</td><td>${esc(t.transaction_type)}</td><td>${esc(t.description||'')}</td><td>${money(t.amount)}</td></tr>`);
     const panel=$('#crmDetailPanel'); panel.classList.remove('hidden');
     $('#crmDetail').innerHTML=`<div class="crm-drawer-inner">
@@ -161,18 +194,19 @@
         <div class="crm-drawer-actions"><button class="button primary" type="button" data-crm-open="appointment">Schedule</button><button class="button secondary" type="button" data-crm-open="project">New project</button><button class="button secondary" type="button" data-create-proposal>Proposal</button><button class="button secondary" type="button" data-create-invoice>Invoice</button><button class="button secondary" type="button" data-crm-open="edit">Edit</button></div>
       </div>
       <div class="crm-contact-strip">
-        <div class="crm-contact-item"><span class="crm-contact-label">Contact</span><div class="crm-contact-value">${esc(c.contact_name||'—')}</div></div>
+        <div class="crm-contact-item"><span class="crm-contact-label">Title</span><div class="crm-contact-value">${esc(c.contact_name||'—')}</div></div>
         <div class="crm-contact-item"><span class="crm-contact-label">Phone / Email</span><div class="crm-contact-value">${esc(c.phone||c.email||'—')}</div></div>
         <div class="crm-contact-item"><span class="crm-contact-label">Service address</span><div class="crm-contact-value">${esc(c.service_address||'—')}</div></div>
         <div class="crm-contact-item crm-requirements-item"><span class="crm-contact-label">Customer Notes &amp; Requirements</span><div class="crm-contact-value crm-contact-notes" title="${esc(c.notes||'')}">${esc(c.notes||'—')}</div></div>
       </div>
       <div class="crm-summary-strip"><div class="crm-summary-item"><strong>${money(revenue)}</strong><span>Revenue</span></div><div class="crm-summary-item"><strong>${money(outstanding)}</strong><span>Open invoices</span></div><div class="crm-summary-item"><strong class="${revenue-cost>=0?'money-positive':'money-negative'}">${money(revenue-cost)}</strong><span>Recorded profit</span></div></div>
-      <nav class="crm-detail-tabs" aria-label="Customer detail sections"><button class="crm-detail-tab active" type="button" data-crm-tab="overview">Overview</button><button class="crm-detail-tab" type="button" data-crm-tab="appointments">Appointments</button><button class="crm-detail-tab" type="button" data-crm-tab="projects">Projects</button><button class="crm-detail-tab" type="button" data-crm-tab="activity">Activity</button></nav>
+      <nav class="crm-detail-tabs" aria-label="Customer detail sections"><button class="crm-detail-tab active" type="button" data-crm-tab="overview">Overview</button><button class="crm-detail-tab" type="button" data-crm-tab="appointments">Appointments</button><button class="crm-detail-tab" type="button" data-crm-tab="documents">Documents</button><button class="crm-detail-tab" type="button" data-crm-tab="projects">Projects</button><button class="crm-detail-tab" type="button" data-crm-tab="activity">Activity</button></nav>
 
       <div class="crm-tab-panel" data-crm-panel="overview">
         <div id="crmEditComposer" class="crm-composer hidden"><div class="crm-composer-title"><h3>Edit customer</h3><button class="crm-icon-button" type="button" data-crm-hide-composer="crmEditComposer">×</button></div><form id="customerEditQuick" class="business-form form-grid">
           <label>Name / company<input name="display_name" value="${esc(c.display_name||'')}" required></label><label>EWP/MJM Customer<select name="customer_brand" required>${option('EWPros','EWPros',c.customer_brand)}${option('MJMLight','MJMLight',c.customer_brand)}</select></label><label>Stage<select name="customer_type">${option('prospect','Prospects',c.customer_type)}${option('customer','Customers',c.customer_type)}${option('follow_up','Follow-up',c.customer_type)}${option('inactive','Inactive',c.customer_type)}</select></label><label>Primary business line<select name="primary_business_line_id">${lineOptions}</select></label>
-          <label>Company name<input name="company_name" value="${esc(c.company_name||'')}"></label><label>Contact name<input name="contact_name" value="${esc(c.contact_name||'')}"></label><label>Phone<input name="phone" value="${esc(c.phone||'')}"></label><label>Email<input name="email" type="email" value="${esc(c.email||'')}"></label>
+          <label>Company name<input name="company_name" value="${esc(c.company_name||'')}"></label><label>Title<input name="contact_name" value="${esc(c.contact_name||'')}"></label><label>Phone<input name="phone" value="${esc(c.phone||'')}"></label><label>Email<input name="email" type="email" value="${esc(c.email||'')}"></label>
+          <div class="utility-customer-fields span-all hidden" data-utility-customer-fields><label>Utility<input name="utility" value="${esc(c.utility||'')}" placeholder="PEPCO, BGE, etc."></label><label>Account #<input name="utility_account_number" value="${esc(c.utility_account_number||'')}"></label><label>Business Type<input name="business_type" value="${esc(c.business_type||'')}" placeholder="Office, retail, warehouse…"></label></div>
           <label class="span-2">Service address<input name="service_address" value="${esc(c.service_address||'')}"></label><label>City<input name="city" value="${esc(c.city||'')}"></label><label>State<input name="state_code" maxlength="2" value="${esc(c.state_code||'')}"></label><label>ZIP<input name="zipcode" value="${esc(c.zipcode||'')}"></label>
           <label class="span-all">Customer Notes &amp; Requirements<textarea name="notes" rows="4">${esc(c.notes||'')}</textarea></label>
           <div class="form-actions span-all"><button class="button primary" type="submit">Save changes</button><button class="button warn crm-destructive" type="button" data-delete-customer="${c.id}">Delete / Archive</button></div></form></div>
@@ -194,6 +228,10 @@
         <div class="crm-section"><div class="crm-section-head"><h3>Appointments</h3><button class="button secondary micro" type="button" data-crm-open="appointment">+ Schedule</button></div><div class="crm-section-body crm-drawer-table">${table(['Date','Appointment','Assigned','Status','Source',''],appointmentRows,'No appointments yet.')}</div></div>
       </div>
 
+      <div class="crm-tab-panel hidden" data-crm-panel="documents">
+        <div class="crm-section crm-documents-section"><div class="crm-section-head"><div><h3>Documents</h3><span class="crm-section-subtitle">Link files stored in Google Drive, Dropbox, OneDrive, or another online storage service.</span></div></div><div class="crm-section-body"><form id="customerDocumentQuick" class="crm-document-add"><input name="title" placeholder="Document name" required><select name="provider"><option>Google Drive</option><option>Dropbox</option><option>OneDrive</option><option>Other</option></select><input name="document_url" type="url" placeholder="https://…" required><input name="notes" placeholder="Optional note"><button class="button primary" type="submit">Add link</button></form><div class="crm-document-list">${documentRows||'<div class="crm-empty-small">No document links yet.</div>'}</div></div></div>
+      </div>
+
       <div class="crm-tab-panel hidden" data-crm-panel="projects">
         <div id="crmProjectComposer" class="crm-composer hidden"><div class="crm-composer-title"><h3>New project</h3><button class="crm-icon-button" type="button" data-crm-hide-composer="crmProjectComposer">×</button></div><form id="customerProjectQuick" class="business-form compact-form"><input name="name" placeholder="Project name" required><select name="business_line_id" required>${lineOptions}</select><select name="status"><option value="lead">Lead</option><option value="scheduled">Scheduled</option><option value="active">Active</option></select><input name="project_type" placeholder="Inspection, electrical, renovation…"><input name="start_date" type="date" aria-label="Start date"><input name="end_date" type="date" aria-label="Due date"><button class="button primary" type="submit">Create project</button></form></div>
         <div class="crm-section"><div class="crm-section-head"><h3>Projects</h3><button class="button secondary micro" type="button" data-crm-open="project">+ New project</button></div><div class="crm-section-body crm-mini-list">${projectRows||'<div class="crm-empty-small">No projects yet.</div>'}</div></div>
@@ -202,8 +240,8 @@
 
       <div class="crm-tab-panel hidden" data-crm-panel="activity">
         <div class="crm-activity-grid">
-          <div class="crm-section"><div class="crm-section-head"><div><h3>Next Action Task</h3><span class="crm-section-subtitle">The earliest unchecked due task appears on the CRM list.</span></div></div><div class="crm-section-body"><form id="customerReminderQuick" class="crm-task-add"><input name="title" placeholder="What needs to happen next?" required><input name="due_at" type="datetime-local" aria-label="Due date"><button class="button primary" type="submit">Add task</button></form><div class="crm-task-list">${reminderRows||'<div class="crm-empty-small">No tasks yet.</div>'}</div></div></div>
-          <div class="crm-section"><div class="crm-section-head"><div><h3>Comments</h3><span class="crm-section-subtitle">A chronological history of conversations, updates and decisions.</span></div></div><div class="crm-section-body"><form id="customerNoteQuick" class="crm-comment-add"><textarea name="note" rows="2" placeholder="Add a comment…" required></textarea><button class="button primary" type="submit">Add comment</button></form><div class="crm-mini-list crm-comments-list">${noteRows||'<div class="crm-empty-small">No comments yet.</div>'}</div></div></div>
+          <div class="crm-section crm-activity-card"><div class="crm-section-head"><div><h3>Next Action Task</h3><span class="crm-section-subtitle">Assign work to a Team member. The earliest unchecked due task appears on the CRM list.</span></div></div><div class="crm-section-body"><form id="customerReminderQuick" class="crm-task-add"><input name="title" placeholder="What needs to happen next?" required><input name="due_at" type="datetime-local" aria-label="Due date"><select name="assigned_worker_id" aria-label="Assigned to"><option value="">Unassigned</option>${workers.map(w=>option(w.id,`${w.first_name} ${w.last_name}`, '')).join('')}</select><button class="button primary" type="submit">Add task</button></form><div class="crm-task-list">${reminderRows||'<div class="crm-empty-small">No tasks yet.</div>'}</div></div></div>
+          <div class="crm-section crm-activity-card"><div class="crm-section-head"><div><h3>Comments</h3><span class="crm-section-subtitle">A chronological history of conversations, updates and decisions.</span></div></div><div class="crm-section-body"><form id="customerNoteQuick" class="crm-comment-add"><textarea name="note" rows="2" placeholder="Add a comment…" required></textarea><button class="button primary" type="submit">Add comment</button></form><div class="crm-mini-list crm-comments-list">${noteRows||'<div class="crm-empty-small">No comments yet.</div>'}</div></div></div>
         </div>
         <div class="crm-section"><div class="crm-section-head"><h3>Transaction history</h3></div><div class="crm-section-body crm-drawer-table">${table(['Date','Type','Description','Amount'],transactionRows,'No transactions.')}</div></div>
       </div>
@@ -221,18 +259,23 @@
     $$('[data-crm-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.crmTab)));
     $$('[data-crm-open]').forEach(b=>b.addEventListener('click',()=>showComposer(b.dataset.crmOpen)));
     $$('[data-crm-hide-composer]').forEach(b=>b.addEventListener('click',()=>document.getElementById(b.dataset.crmHideComposer)?.classList.add('hidden')));
+    syncUtilityCustomerFields($('#customerEditQuick'));
+    $('#customerEditQuick [name="primary_business_line_id"]')?.addEventListener('change',e=>syncUtilityCustomerFields(e.currentTarget.form));
     $('#customerEditQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;await action({action:'update_customer',id,patch:formData(form)});toast('Customer updated');await loadLookups(true);await loadCustomers();openCustomer(id);});
     $('#customerAppointmentQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;await action({action:'create_appointment',customer_id:id,...formData(form)});toast('Appointment scheduled');await loadLookups(true);await loadCustomers();await window.EWPROS_ADMIN_REFRESH?.();openCustomer(id);});
     $('#customerProjectQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;await action({action:'create_project',customer_id:id,service_address:c.service_address||null,...formData(form)});toast('Project created');await loadLookups(true);openCustomer(id);});
+    $('#customerDocumentQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'add_customer_document',customer_id:id,...d});toast('Document link added');openCustomer(id);});
     $('#customerNoteQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'add_customer_note',customer_id:id,note:d.note});toast('Comment added');await loadCustomers();openCustomer(id);});
-    $('#customerReminderQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'add_reminder',customer_id:id,title:d.title,due_at:d.due_at||null});toast('Next action task added');await loadCustomers();openCustomer(id);});
+    $('#customerReminderQuick')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const d=formData(form);await action({action:'add_reminder',customer_id:id,title:d.title,due_at:d.due_at||null,assigned_worker_id:d.assigned_worker_id||null});toast('Next action task added');await loadCustomers();openCustomer(id);});
     $$('[data-cancel-appointment]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Cancel this appointment? It will remain in customer history but will no longer be an active Auditor Wizard visit.',{action:'cancel_appointment',id:b.dataset.cancelAppointment},async()=>{await window.EWPROS_ADMIN_REFRESH?.();await openCustomer(id);},{title:'Cancel appointment',confirmLabel:'Cancel appointment'})));
     $$('[data-toggle-reminder]').forEach(box=>box.addEventListener('change',async()=>{await action({action:'toggle_reminder',id:box.dataset.toggleReminder,completed:box.checked});toast(box.checked?'Task completed':'Task reopened');await loadCustomers();openCustomer(id);}));
+    $$('[data-task-assignee]').forEach(select=>select.addEventListener('change',async()=>{await action({action:'assign_reminder',id:select.dataset.taskAssignee,assigned_worker_id:select.value||null});toast('Task assignment updated');await loadCustomers();openCustomer(id);}));
     $$('[data-edit-note]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.editNote;document.querySelector(`[data-note-display="${id}"]`)?.classList.add('hidden');document.querySelector(`[data-note-edit-form="${id}"]`)?.classList.remove('hidden');}));
     $$('[data-cancel-note-edit]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.cancelNoteEdit;document.querySelector(`[data-note-display="${id}"]`)?.classList.remove('hidden');document.querySelector(`[data-note-edit-form="${id}"]`)?.classList.add('hidden');}));
     $$('[data-note-edit-form]').forEach(form=>form.addEventListener('submit',async e=>{e.preventDefault();const d=formData(form);await action({action:'update_customer_note',id:form.dataset.noteEditForm,note:d.note});toast('Comment updated');await loadCustomers();openCustomer(id);}));
     $$('[data-delete-note]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Delete this customer comment?',{action:'delete_customer_note',id:b.dataset.deleteNote},async()=>{await loadCustomers();await openCustomer(id);})));
     $$('[data-delete-reminder]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Delete this reminder?',{action:'delete_reminder',id:b.dataset.deleteReminder},async()=>{await loadCustomers();await openCustomer(id);})));
+    $$('[data-delete-document]').forEach(b=>b.addEventListener('click',()=>confirmedAction('Remove this document link from the customer record? The file itself will remain in its online storage service.',{action:'delete_customer_document',id:b.dataset.deleteDocument},async()=>{await openCustomer(id);},{title:'Remove document link',confirmLabel:'Remove link'})));
     $('[data-create-proposal]')?.addEventListener('click',()=>window.EWPROS_DOCUMENTS?.openProposal({customer:c,projects:customerProjects,proposals,onSaved:async()=>{await loadCustomers();await openCustomer(id);}}));
     $('[data-create-invoice]')?.addEventListener('click',()=>{const latest=proposals[0];if(!latest){alert('Create and save a proposal for this customer first.');return;}window.EWPROS_DOCUMENTS?.openInvoice({customer:c,proposal:latest,onSaved:async()=>{await loadCustomers();await openCustomer(id);}});});
     $('[data-delete-customer]')?.addEventListener('click',()=>confirmedAction('Delete this customer if unused? If it has appointments or business history, EWPros will archive it instead.',{action:'delete_customer',id},async()=>{panel.classList.add('hidden');await loadLookups(true);await loadCustomers();}));
@@ -270,7 +313,7 @@
   }
   async function exportCustomers(){
     const data=await get('customer-export');
-    const headers=['display_name','company_name','contact_name','phone','email','service_address','city','state_code','zipcode','business_line','customer_type','customer_brand','source','notes','active'];
+    const headers=['display_name','company_name','contact_name','phone','email','service_address','city','state_code','zipcode','utility','utility_account_number','business_type','business_line','customer_type','customer_brand','source','notes','active'];
     downloadCsv(`EWPros_Customers_${new Date().toISOString().slice(0,10)}.csv`,headers,data.customers||[]); toast('Customer CSV exported');
   }
 
@@ -426,17 +469,18 @@
   $$('[data-open-business-view]').forEach(b=>b.addEventListener('click',()=>document.querySelector(`.nav-item[data-view="${b.dataset.openBusinessView}"]`)?.click()));
   const openCrmModal=id=>document.getElementById(id)?.classList.remove('hidden');
   const closeCrmModal=id=>document.getElementById(id)?.classList.add('hidden');
-  $('#crmNewCustomerOpen')?.addEventListener('click',()=>openCrmModal('crmCustomerModal'));
+  $('#crmNewCustomerOpen')?.addEventListener('click',()=>{openCrmModal('crmCustomerModal');syncUtilityCustomerFields($('#customerForm'));});
   $('#crmImportOpen')?.addEventListener('click',()=>openCrmModal('crmImportModal'));
   $$('[data-crm-close]').forEach(b=>b.addEventListener('click',()=>closeCrmModal(b.dataset.crmClose)));
   $$('.crm-modal-overlay').forEach(overlay=>overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.add('hidden');}));
-  $('#crmSearch')?.addEventListener('input',renderCustomerList); $('#crmStageFilter')?.addEventListener('change',renderCustomerList); $('#crmLineFilter')?.addEventListener('change',renderCustomerList); $('#projectSearch')?.addEventListener('input',()=>loadProjects()); $('#projectViewFilter')?.addEventListener('change',()=>loadProjects()); $('#bankReviewFilter')?.addEventListener('change',renderBanking);
+  $('#crmSearch')?.addEventListener('input',renderCustomerList); $('#crmStageFilter')?.addEventListener('change',renderCustomerList); $('#crmLineFilter')?.addEventListener('change',renderCustomerList); $('#crmAssignedFilter')?.addEventListener('change',renderCustomerList); $('#projectSearch')?.addEventListener('input',()=>loadProjects()); $('#projectViewFilter')?.addEventListener('change',()=>loadProjects()); $('#bankReviewFilter')?.addEventListener('change',renderBanking);
 
   $('#crmCustomerFile')?.addEventListener('change',e=>{state.crmFile=null;state.crmImportPreview=null;const f=e.target.files?.[0];$('#crmImportFileStatus').textContent=f?`Selected: ${f.name}`:'No customer file selected.';$('#crmConfirmImport').disabled=true;$('#crmImportPreview').innerHTML='';});
   $('#crmImportForm')?.addEventListener('submit',async e=>{e.preventDefault();try{await previewCrmImport();}catch(err){alert(err.message);}});
   $('#crmConfirmImport')?.addEventListener('click',async()=>{try{if(!state.crmImportPreview)await previewCrmImport();const ok=await askConfirmation({title:'Import customers',message:'Import the previewed customer file into the CRM master list?',confirmLabel:'Import customers',danger:false});if(ok)await confirmCrmImport();}catch(err){alert(err.message);}});
   $('#crmExportCustomers')?.addEventListener('click',()=>exportCustomers().catch(err=>alert(err.message)));
-  $('#customerForm')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;try{await action({action:'create_customer',...formData(form)});form.reset();closeCrmModal('crmCustomerModal');toast('Customer saved');await loadLookups(true);await loadCustomers();}catch(err){alert(err.message);}});
+  $('#customerForm [name="primary_business_line_id"]')?.addEventListener('change',e=>syncUtilityCustomerFields(e.currentTarget.form));
+  $('#customerForm')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;try{await action({action:'create_customer',...formData(form)});form.reset();syncUtilityCustomerFields(form);closeCrmModal('crmCustomerModal');toast('Customer saved');await loadLookups(true);await loadCustomers();}catch(err){alert(err.message);}});
   $('#saveAppNotes')?.addEventListener('click',async()=>{try{const content=$('#appNotesEditor')?.value||'';const result=await action({action:'save_app_notes',content});state.appNotes=result.data;toast('Notes saved');await loadAppNotes();}catch(err){alert(err.message);}});
   $('#projectForm')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;try{await action({action:'create_project',...formData(form)});form.reset();toast('Project created');await loadLookups(true);await loadProjects();}catch(err){alert(err.message);}});
   $('#bankAccountForm')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;try{await action({action:'create_account',...formData(form)});form.reset();toast('Account added');await loadLookups(true);await loadBanking();}catch(err){alert(err.message);}});

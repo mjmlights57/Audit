@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111827">
   <title>EWPros Administrator Dashboard</title>
   <link rel="icon" href="../assets/icon.svg">
-  <link rel="stylesheet" href="admin.css?v=3.2.0">
+  <link rel="stylesheet" href="admin.css?v=3.2.1">
 </head>
 <body>
   <div id="loginPanel" class="login-screen">
@@ -29,7 +29,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <div class="brand-mark small">A</div>
-        <div><strong>EWPros</strong><span>Administrator · v3.2.0</span></div>
+        <div><strong>EWPros</strong><span>Administrator · v3.2.1</span></div>
       </div>
       <nav>
         <span class="nav-section-label">Business</span>
@@ -111,6 +111,7 @@
             <div class="crm-search-wrap"><span aria-hidden="true">⌕</span><input id="crmSearch" type="search" placeholder="Search customers…" aria-label="Search customers"></div>
             <select id="crmStageFilter" aria-label="Filter by stage"><option value="all">All Stages</option><option value="prospect">Prospects</option><option value="customer">Customers</option><option value="follow_up">Follow-up</option><option value="inactive">Inactive</option></select>
             <select id="crmLineFilter" aria-label="Filter by business line"><option value="">All business lines</option></select>
+            <select id="crmAssignedFilter" aria-label="Filter by assigned person"><option value="">Assigned To: All</option></select>
             <span id="crmListCount" class="crm-list-count"></span>
           </div>
 
@@ -124,7 +125,10 @@
             <div class="crm-modal-head"><div><p class="crm-kicker">CRM</p><h3 id="crmCustomerModalTitle">New customer</h3></div><button class="crm-icon-button" type="button" data-crm-close="crmCustomerModal" aria-label="Close">×</button></div>
             <form id="customerForm" class="business-form form-grid">
               <label>Name / company<input name="display_name" required></label><label>EWP/MJM Customer<select name="customer_brand" required><option value="">Select company…</option><option value="EWPros">EWPros</option><option value="MJMLight">MJMLight</option></select></label><label>Primary business line<select name="primary_business_line_id" data-business-options="business-lines" required></select></label><label>Stage<select name="customer_type"><option value="prospect">Prospects</option><option value="customer" selected>Customers</option><option value="follow_up">Follow-up</option><option value="inactive">Inactive</option></select></label>
-              <label>Contact name<input name="contact_name"></label><label>Phone<input name="phone" type="tel"></label><label>Email<input name="email" type="email"></label>
+              <label>Title<input name="contact_name"></label><label>Phone<input name="phone" type="tel"></label><label>Email<input name="email" type="email"></label>
+              <div class="utility-customer-fields span-all hidden" data-utility-customer-fields>
+                <label>Utility<input name="utility" placeholder="PEPCO, BGE, etc."></label><label>Account #<input name="utility_account_number"></label><label>Business Type<input name="business_type" placeholder="Office, retail, warehouse…"></label>
+              </div>
               <label class="span-2">Service address<input name="service_address"></label><label>City<input name="city"></label><label>State<input name="state_code" maxlength="2"></label><label>ZIP<input name="zipcode"></label>
               <label class="span-all">Customer Notes &amp; Requirements<textarea name="notes" rows="3"></textarea></label><div class="form-actions span-all crm-modal-actions"><button class="button secondary" type="button" data-crm-close="crmCustomerModal">Cancel</button><button class="button primary" type="submit">Save customer</button></div>
             </form>
@@ -606,9 +610,9 @@
   <script src="../control-data.js"></script>
   <script src="../pepco-online-data.js"></script>
   <script src="../space-types.js"></script>
-  <script src="admin.js?v=3.2.0"></script>
+  <script src="admin.js?v=3.2.1"></script>
   <script src="../assets/pdf-lib.min.js"></script>
-  <script src="document-generator.js?v=3.2.0"></script>
-  <script src="business.js?v=3.2.0"></script>
+  <script src="document-generator.js?v=3.2.1"></script>
+  <script src="business.js?v=3.2.1"></script>
 </body>
 </html>

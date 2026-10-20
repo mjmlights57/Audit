@@ -34,7 +34,10 @@ const ALIASES = {
   source: ['source','lead source'],
   notes: ['notes','note','comments','comment'],
   business_line: ['business line','line of business','division'],
-  customer_brand: ['ewp/mjm customer','customer brand','brand','company brand','issuing company']
+  customer_brand: ['ewp/mjm customer','customer brand','brand','company brand','issuing company'],
+  utility: ['utility','utility company'],
+  utility_account_number: ['account #','account number','utility account #','utility account number'],
+  business_type: ['business type','facility type']
 };
 
 function headerKey(header) {
@@ -76,6 +79,9 @@ function normalizeRow(raw, headers, defaults={}) {
     city: clean(row.city),
     state_code: clean(row.state_code).toUpperCase().slice(0, 2),
     zipcode: clean(row.zipcode),
+    utility: clean(row.utility),
+    utility_account_number: clean(row.utility_account_number),
+    business_type: clean(row.business_type),
     customer_type: normalizeStage(row.customer_type, defaults.default_customer_type),
     customer_brand: normalizeBrand(row.customer_brand, defaults.default_customer_brand),
     source: clean(row.source) || 'crm_import',
@@ -136,7 +142,7 @@ function parseCustomerCsv(csvText, defaults={}, businessLines=[]) {
 
 function mergePatch(existing, incoming) {
   const patch={};
-  for (const key of ['display_name','company_name','contact_name','phone','email','service_address','city','state_code','zipcode','notes','primary_business_line_id','customer_brand']) {
+  for (const key of ['display_name','company_name','contact_name','phone','email','service_address','city','state_code','zipcode','utility','utility_account_number','business_type','notes','primary_business_line_id','customer_brand']) {
     if (clean(incoming[key]) && clean(existing[key]) !== clean(incoming[key])) patch[key]=incoming[key];
   }
   if (incoming.customer_type && existing.customer_type !== incoming.customer_type) patch.customer_type=incoming.customer_type;

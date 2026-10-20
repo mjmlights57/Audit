@@ -5,7 +5,7 @@ const { customerMatch, parseCustomerCsv, mergePatch } = require('./_crm-csv');
 async function buildPlan(supabase, csvText, defaults) {
   const [businessLines, existing] = await Promise.all([
     fetchAll(supabase,'business_lines','id,code,name,active',q=>q.eq('active',true).order('name')),
-    fetchAll(supabase,'customers','id,display_name,company_name,contact_name,phone,email,service_address,city,state_code,zipcode,customer_type,customer_brand,primary_business_line_id,notes,active',q=>q.order('updated_at',{ascending:false}))
+    fetchAll(supabase,'customers','id,display_name,company_name,contact_name,phone,email,service_address,city,state_code,zipcode,utility,utility_account_number,business_type,customer_type,customer_brand,primary_business_line_id,notes,active',q=>q.order('updated_at',{ascending:false}))
   ]);
   const parsed = parseCustomerCsv(csvText, defaults, businessLines);
   const valid=[], invalid=[], duplicates=[];

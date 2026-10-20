@@ -7,6 +7,12 @@ const required = (value, label) => {
   if (value === undefined || value === null || String(value).trim() === '') throw new Error(`${label} is required.`);
   return value;
 };
+const safeExternalUrl = value => {
+  const raw=required(value,'Document URL');
+  let url; try{url=new URL(String(raw).trim());}catch{throw new Error('Enter a valid document link.');}
+  if(!['http:','https:'].includes(url.protocol)) throw new Error('Document links must use http or https.');
+  return url.toString();
+};
 
 async function inheritProjectDimensions(supabase, body) {
   if (!body.project_id) return body;
@@ -24,6 +30,7 @@ async function createCustomer(supabase, body) {
     display_name: required(body.display_name, 'Customer name'),
     company_name: clean(body.company_name), contact_name: clean(body.contact_name), phone: clean(body.phone), email: clean(body.email),
     service_address: clean(body.service_address), mailing_address: clean(body.mailing_address), city: clean(body.city), state_code: clean(body.state_code), zipcode: clean(body.zipcode),
+    utility: clean(body.utility), utility_account_number: clean(body.utility_account_number), business_type: clean(body.business_type),
     source: body.source || 'manual', tags: Array.isArray(body.tags) ? body.tags : [], notes: clean(body.notes), active: body.active !== false
   };
   const { data, error } = await supabase.from('customers').insert(payload).select('*').single();
@@ -671,10 +678,16 @@ exports.handler = async event => {
     else if (action === 'add_customer_note') { const {data:d,error}=await supabase.from('customer_notes').insert({customer_id:required(body.customer_id,'Customer'),note:required(body.note,'Note'),created_by:'Administrator'}).select('*').single(); if(error)throw error; data=d; }
     else if (action === 'update_customer_note') { const {data:d,error}=await supabase.from('customer_notes').update({note:required(body.note,'Note')}).eq('id',required(body.id,'Note')).select('*').single(); if(error)throw error; data=d; }
     else if (action === 'delete_customer_note') { const {error}=await supabase.from('customer_notes').delete().eq('id',required(body.id,'Note')); if(error)throw error; data={mode:'deleted'}; }
-    else if (action === 'add_reminder') { const {data:d,error}=await supabase.from('reminders').insert({customer_id:clean(body.customer_id),project_id:clean(body.project_id),title:required(body.title,'Reminder title'),details:clean(body.details),due_at:clean(body.due_at)}).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'add_reminder') { const {data:d,error}=await supabase.from('reminders').insert({customer_id:clean(body.customer_id),project_id:clean(body.project_id),title:required(body.title,'Reminder title'),details:clean(body.details),due_at:clean(body.due_at),assigned_worker_id:clean(body.assigned_worker_id)}).select('*').single(); if(error)throw error; data=d; }
+    else if (action === 'assign_reminder') { const {data:d,error}=await supabase.from('reminders').update({assigned_worker_id:clean(body.assigned_worker_id)}).eq('id',required(body.id,'Reminder')).select('*').single(); if(error)throw error; data=d; }
     else if (action === 'complete_reminder') { const {data:d,error}=await supabase.from('reminders').update({status:'completed',completed_at:new Date().toISOString()}).eq('id',required(body.id,'Reminder')).select('*').single(); if(error)throw error; data=d; }
     else if (action === 'toggle_reminder') { const done=!!body.completed; const {data:d,error}=await supabase.from('reminders').update({status:done?'completed':'open',completed_at:done?new Date().toISOString():null}).eq('id',required(body.id,'Reminder')).select('*').single(); if(error)throw error; data=d; }
     else if (action === 'delete_reminder') { const {error}=await supabase.from('reminders').delete().eq('id',required(body.id,'Reminder')); if(error)throw error; data={mode:'deleted'}; }
+    else if (action === 'add_customer_document') {
+      const payload={customer_id:required(body.customer_id,'Customer'),title:required(body.title,'Document title'),provider:body.provider||'Other',document_url:safeExternalUrl(body.document_url),notes:clean(body.notes),created_by:'Administrator',updated_at:new Date().toISOString()};
+      const {data:d,error}=await supabase.from('customer_documents').insert(payload).select('*').single(); if(error)throw error; data=d;
+    }
+    else if (action === 'delete_customer_document') { const {error}=await supabase.from('customer_documents').delete().eq('id',required(body.id,'Document')); if(error)throw error; data={mode:'deleted'}; }
     else if (action === 'create_project') data = await createProject(supabase, body);
     else if (action === 'create_appointment') data = await createAppointment(supabase, body);
     else if (action === 'cancel_appointment') data = await cancelAppointment(supabase, body.id);
@@ -725,7 +738,9 @@ exports.handler = async event => {
     return json(200, {ok:true,data});
   } catch (error) {
     console.error('[business-action]', error);
-    if (isMissingBusinessSchema(error)) return json(409,{error:'Business modules require the v3.0 Supabase schema. Run EWPROS-BUSINESS-SYSTEM-SCHEMA.sql first.',setupRequired:true});
+    const message=String(error?.message||'');
+    if (/customer_documents|assigned_worker_id|utility_account_number|business_type|customers\.utility/i.test(message)) return json(409,{error:'EWPros v3.2.1 database update is required for CRM utility fields, assigned tasks, and document links.',setupRequired:true,setupFile:'EWPROS-V3.2.1-MIGRATION.sql'});
+    if (isMissingBusinessSchema(error)) return json(409,{error:'Business modules require the v3.0 Supabase schema.',setupRequired:true,setupFile:'EWPROS-BUSINESS-SYSTEM-SCHEMA.sql'});
     return json(400,{error:error.message||'Business action failed.'});
   }
 };
