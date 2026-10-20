@@ -33,7 +33,7 @@ test('v3.1.4 exposes update_customer_note in the server action handler',()=>{
 test('both admin entry points load the v3.1.4 CRM bundle',()=>{
   for(const file of ['admin.html','admin/index.html']){
     const html=read(file);
-    assert.match(html,/Administrator · v3\.2\.0/);
-    assert.match(html,/business\.js\?v=3\.2\.0/);
+    assert.match(html,/Administrator · v3\.2\.1/);
+    assert.match(html,/business\.js\?v=3\.2\.1/);
   }
 });

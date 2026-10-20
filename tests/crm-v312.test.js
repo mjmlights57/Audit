@@ -7,7 +7,7 @@ const read = p => fs.readFileSync(path.join(root,p),'utf8');
 
 test('v3.1.2 CRM list includes next action and due date and shows notes instead of address',()=>{
   const js=read('admin/business.js');
-  assert.match(js,/\['Customer','Stage','Next Action','Due Date','Business line','Contact','Notes',''\]/);
+  assert.match(js,/\['Customer','Stage','Next Action','Due Date','Business line','Title','Notes',''\]/);
   assert.match(js,/c\.next_action/);
   assert.match(js,/c\.due_date/);
   assert.match(js,/c\.notes/);

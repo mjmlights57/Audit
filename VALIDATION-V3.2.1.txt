@@ -1,0 +1,13 @@
+EWPros v3.2.1 validation
+Date: 2026-10-20
+
+- JavaScript syntax checks: passed
+- Automated test suite: 88/88 passed
+- CRM due-date ordering checks: passed
+- Inactive-stage visibility checks: passed
+- Utility Programs conditional-field checks: passed
+- Activity blue-border and task-assignment checks: passed
+- Assigned To CRM filter checks: passed
+- Customer Documents link workflow checks: passed
+- v3.2.1 migration presence/security checks: passed
+- Administrator cache/version checks: passed

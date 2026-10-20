@@ -13,8 +13,10 @@ alter table public.customers drop constraint if exists customers_customer_brand_
 alter table public.customers add constraint customers_customer_brand_check check (customer_brand in ('EWPros','MJMLight'));
 
 -- Replace legacy Lead stage with the new CRM stage set.
-update public.customers set customer_type='prospect' where customer_type='lead';
+-- Drop the legacy check BEFORE changing 'lead' to 'prospect'; otherwise
+-- PostgreSQL rejects the update because the old constraint does not allow 'prospect'.
 alter table public.customers drop constraint if exists customers_customer_type_check;
+update public.customers set customer_type='prospect' where customer_type='lead';
 alter table public.customers add constraint customers_customer_type_check
   check (customer_type in ('prospect','customer','follow_up','inactive'));
 alter table public.customers alter column customer_type set default 'customer';
